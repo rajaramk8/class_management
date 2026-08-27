@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Student, Instructor, Subject, Level } from '../types';
+import { Student, Instructor } from '../types';
 import { 
   ENGLISH_LEVELS_DISPLAY_ORDER, 
   MATH_BTM_LEVELS_DISPLAY_ORDER,
@@ -24,8 +24,6 @@ export const AdminManagement: React.FC = () => {
   // Master Data
   const [students, setStudents] = useState<Student[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [levels, setLevels] = useState<Level[]>([]);
 
   // New Student Form States
   const [newStudentName, setNewStudentName] = useState('');
@@ -50,16 +48,12 @@ export const AdminManagement: React.FC = () => {
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [st, inst, sub, lvl] = await Promise.all([
+      const [st, inst] = await Promise.all([
         api.getStudents(),
         api.getInstructors(),
-        api.getSubjects(),
-        api.getLevels(),
       ]);
       setStudents(st);
       setInstructors(inst);
-      setSubjects(sub);
-      setLevels(lvl);
     } catch (err) {
       console.error(err);
     } finally {
@@ -143,6 +137,17 @@ export const AdminManagement: React.FC = () => {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto mb-3"></div>
+          <p className="text-sm text-slate-500">Loading admin configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

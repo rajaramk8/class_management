@@ -1,7 +1,6 @@
 import React from 'react';
 import { Homework, Student, Subject } from '../types';
 import { 
-  CheckSquare, 
   AlertCircle, 
   Calendar, 
   BookOpen, 

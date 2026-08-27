@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import { Student, Subject, Level, Homework, Instructor } from '../types';
+import { Student, Subject, Homework, Instructor } from '../types';
 import { StudentSelect } from '../components/StudentSelect';
 import { ClassDurationPicker } from '../components/ClassDurationPicker';
 import { PendingHomeworkList } from '../components/PendingHomeworkList';
@@ -14,8 +14,7 @@ import {
   Send, 
   CheckCircle2, 
   AlertTriangle,
-  User,
-  History
+  User
 } from 'lucide-react';
 import { format } from 'date-fns';
 

@@ -4,14 +4,13 @@ import { ClassUpdate, Homework, Student, Instructor, Subject } from '../types';
 import { formatLevelDisplay } from '../constants/levels';
 import { 
   BarChart3, 
-  Calendar, 
   Clock, 
   BookOpen, 
   CheckCircle2, 
   AlertCircle, 
   Printer 
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export const Reports: React.FC = () => {
   const [classUpdates, setClassUpdates] = useState<ClassUpdate[]>([]);
@@ -59,7 +58,8 @@ export const Reports: React.FC = () => {
       setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
       setEndDate(format(new Date(), 'yyyy-MM-dd'));
     } else if (reportRangeType === 'full_month') {
-      const monthDate = parseISO(`${selectedMonth}-01`);
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const monthDate = new Date(year, month - 1, 1);
       setStartDate(format(startOfMonth(monthDate), 'yyyy-MM-dd'));
       setEndDate(format(endOfMonth(monthDate), 'yyyy-MM-dd'));
     }
@@ -126,7 +126,7 @@ export const Reports: React.FC = () => {
 
       {/* Filter Control Box */}
       <div className="no-print bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-2">
           
           {/* Preset Selector */}
           <div>
@@ -205,6 +205,44 @@ export const Reports: React.FC = () => {
               ))}
             </select>
           </div>
+
+          {/* Instructor Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">
+              Instructor Filter
+            </label>
+            <select
+              value={selectedInstructorId}
+              onChange={(e) => setSelectedInstructorId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="">All Instructors</option>
+              {instructors.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Subject Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">
+              Subject Filter
+            </label>
+            <select
+              value={selectedSubjectId}
+              onChange={(e) => setSelectedSubjectId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="">All Subjects</option>
+              {subjects.map((sub) => (
+                <option key={sub.id} value={sub.id}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -262,59 +300,66 @@ export const Reports: React.FC = () => {
           <span className="text-xs text-slate-500">{classUpdates.length} records in range</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wider border-b border-slate-200">
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Student</th>
-                <th className="py-3 px-4">Instructor</th>
-                <th className="py-3 px-4">Subject</th>
-                <th className="py-3 px-4">Level(s)</th>
-                <th className="py-3 px-4">Duration</th>
-                <th className="py-3 px-4">Booklet</th>
-                <th className="py-3 px-4">CW</th>
-                <th className="py-3 px-4">HW</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {classUpdates.map((c) => {
-                const levelDisplay = formatLevelDisplay({
-                  subjectName: c.subject?.name,
-                  englishLevel: c.english_level,
-                  btmLevel: c.btm_level,
-                  ctmLevel: c.ctm_level,
-                  levelName: c.level?.name,
-                });
-
-                return (
-                  <tr key={c.id} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">{c.class_date}</td>
-                    <td className="py-3 px-4 font-medium text-slate-800 whitespace-nowrap">{c.student?.name}</td>
-                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{c.instructor?.name}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-700 whitespace-nowrap">{c.subject?.name}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="inline-flex items-center text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">
-                        {levelDisplay}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-700 whitespace-nowrap">{c.duration_minutes}m</td>
-                    <td className="py-3 px-4 font-mono text-xs text-slate-700 whitespace-nowrap">{c.booklet_number || '—'}</td>
-                    <td className="py-3 px-4 text-slate-800 max-w-xs truncate">{c.cw || '—'}</td>
-                    <td className="py-3 px-4 text-sky-900 font-medium max-w-xs truncate">{c.hw || '—'}</td>
-                  </tr>
-                );
-              })}
-              {classUpdates.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
-                    No classes recorded in the selected date range.
-                  </td>
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto mb-2"></div>
+            <p className="text-sm text-slate-500">Loading report data...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Student</th>
+                  <th className="py-3 px-4">Instructor</th>
+                  <th className="py-3 px-4">Subject</th>
+                  <th className="py-3 px-4">Level(s)</th>
+                  <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4">Booklet</th>
+                  <th className="py-3 px-4">CW</th>
+                  <th className="py-3 px-4">HW</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {classUpdates.map((c) => {
+                  const levelDisplay = formatLevelDisplay({
+                    subjectName: c.subject?.name,
+                    englishLevel: c.english_level,
+                    btmLevel: c.btm_level,
+                    ctmLevel: c.ctm_level,
+                    levelName: c.level?.name,
+                  });
+
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50/60">
+                      <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">{c.class_date}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800 whitespace-nowrap">{c.student?.name}</td>
+                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{c.instructor?.name}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-700 whitespace-nowrap">{c.subject?.name}</td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">
+                          {levelDisplay}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-700 whitespace-nowrap">{c.duration_minutes}m</td>
+                      <td className="py-3 px-4 font-mono text-xs text-slate-700 whitespace-nowrap">{c.booklet_number || '—'}</td>
+                      <td className="py-3 px-4 text-slate-800 max-w-xs truncate">{c.cw || '—'}</td>
+                      <td className="py-3 px-4 text-sky-900 font-medium max-w-xs truncate">{c.hw || '—'}</td>
+                    </tr>
+                  );
+                })}
+                {classUpdates.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                      No classes recorded in the selected date range.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
