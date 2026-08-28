@@ -205,54 +205,54 @@ export const AdminManagement: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
       {/* Title */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-sky-600" />
-          Master Data & Curriculum Administration
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-sky-600" />
+          Master Data Administration
         </h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Configure students, default levels (English, Math BTM / CTM / None), instructors, password resets, and curriculum structures.
+        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          Configure students, default levels, instructors, password resets, and curriculum.
         </p>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 mb-6">
+      {/* Navigation Tabs (Scrollable on Mobile) */}
+      <div className="flex gap-1 sm:gap-2 border-b border-slate-200 mb-4 sm:mb-6 overflow-x-auto whitespace-nowrap pb-1">
         <button
           onClick={() => setActiveTab('students')}
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${
             activeTab === 'students'
               ? 'border-sky-600 text-sky-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Users className="w-4 h-4" />
-          Students & Levels ({students.length})
+          <span>Students & Levels ({students.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('instructors')}
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${
             activeTab === 'instructors'
               ? 'border-sky-600 text-sky-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <UserPlus className="w-4 h-4" />
-          Instructors & Passwords ({instructors.length})
+          <span>Instructors & Passwords ({instructors.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('curriculum')}
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${
             activeTab === 'curriculum'
               ? 'border-sky-600 text-sky-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Layers className="w-4 h-4" />
-          Curriculum & Levels
+          <span>Curriculum & Levels</span>
         </button>
       </div>
 

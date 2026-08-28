@@ -102,31 +102,31 @@ export const Reports: React.FC = () => {
   const checkedHwCount = homeworkList.filter(h => h.checked).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
       {/* Page Title & Print Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-sky-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-600" />
             Class & Homework Reports
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Detailed performance metrics, student levels (English / Math BTM & CTM), and homework summaries.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Detailed performance metrics, student levels, and homework summaries.
           </p>
         </div>
 
         <button
           onClick={() => window.print()}
-          className="no-print inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg shadow-sm transition-colors self-start sm:self-auto"
+          className="no-print inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg shadow-xs transition-colors self-start sm:self-auto"
         >
           <Printer className="w-4 h-4 text-slate-600" />
-          Print Report
+          <span>Print Report</span>
         </button>
       </div>
 
       {/* Filter Control Box */}
-      <div className="no-print bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-2">
+      <div className="no-print bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 mb-4 sm:mb-6 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 mb-2">
           
           {/* Preset Selector */}
           <div>
@@ -136,7 +136,7 @@ export const Reports: React.FC = () => {
             <select
               value={reportRangeType}
               onChange={(e: any) => setReportRangeType(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
             >
               <option value="mtd">Month-to-Date (MTD)</option>
               <option value="full_month">Full Month</option>
@@ -154,7 +154,7 @@ export const Reports: React.FC = () => {
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
               />
             </div>
           ) : (
@@ -168,7 +168,7 @@ export const Reports: React.FC = () => {
                   value={startDate}
                   disabled={reportRangeType === 'mtd'}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 disabled:opacity-60 focus:bg-white focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 disabled:opacity-60 focus:bg-white focus:ring-2 focus:ring-sky-500"
                 />
               </div>
 
@@ -181,7 +181,7 @@ export const Reports: React.FC = () => {
                   value={endDate}
                   disabled={reportRangeType === 'mtd'}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 disabled:opacity-60 focus:bg-white focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 disabled:opacity-60 focus:bg-white focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </>
@@ -195,7 +195,7 @@ export const Reports: React.FC = () => {
             <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Students</option>
               {students.map((s) => (
@@ -214,7 +214,7 @@ export const Reports: React.FC = () => {
             <select
               value={selectedInstructorId}
               onChange={(e) => setSelectedInstructorId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Instructors</option>
               {instructors.map((i) => (
@@ -233,7 +233,7 @@ export const Reports: React.FC = () => {
             <select
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Subjects</option>
               {subjects.map((sub) => (
@@ -246,50 +246,50 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Executive Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      {/* Executive Summary Stat Cards (2x2 on Mobile, 4x1 on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-4 sm:mb-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Classes</span>
-            <span className="p-2 bg-sky-50 text-sky-600 rounded-lg">
-              <BookOpen className="w-4 h-4" />
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Classes</span>
+            <span className="p-1.5 sm:p-2 bg-sky-50 text-sky-600 rounded-lg">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </span>
           </div>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{totalClasses}</p>
-          <p className="text-xs text-slate-400 mt-1">Between {startDate} and {endDate}</p>
+          <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1 sm:mt-2">{totalClasses}</p>
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">Total in range</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Class Duration</span>
-            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-              <Clock className="w-4 h-4" />
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</span>
+            <span className="p-1.5 sm:p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </span>
           </div>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{totalDurationHours} <span className="text-lg font-medium text-slate-500">hrs</span></p>
-          <p className="text-xs text-slate-400 mt-1">{totalDurationMinutes} total minutes taught</p>
+          <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1 sm:mt-2">{totalDurationHours} <span className="text-xs sm:text-lg font-medium text-slate-500">hrs</span></p>
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">{totalDurationMinutes} mins total</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Checked Homework</span>
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <CheckCircle2 className="w-4 h-4" />
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Checked HW</span>
+            <span className="p-1.5 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </span>
           </div>
-          <p className="text-3xl font-bold text-emerald-600 mt-2">{checkedHwCount}</p>
-          <p className="text-xs text-emerald-700/80 mt-1">Completed & checked</p>
+          <p className="text-xl sm:text-3xl font-bold text-emerald-600 mt-1 sm:mt-2">{checkedHwCount}</p>
+          <p className="text-[10px] sm:text-xs text-emerald-700/80 mt-0.5 truncate">Completed</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Homework</span>
-            <span className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-              <AlertCircle className="w-4 h-4" />
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending HW</span>
+            <span className="p-1.5 sm:p-2 bg-amber-50 text-amber-600 rounded-lg">
+              <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </span>
           </div>
-          <p className="text-3xl font-bold text-amber-600 mt-2">{pendingHwCount}</p>
-          <p className="text-xs text-amber-700/80 mt-1">Awaiting instructor review</p>
+          <p className="text-xl sm:text-3xl font-bold text-amber-600 mt-1 sm:mt-2">{pendingHwCount}</p>
+          <p className="text-[10px] sm:text-xs text-amber-700/80 mt-0.5 truncate">Awaiting check</p>
         </div>
       </div>
 

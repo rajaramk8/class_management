@@ -259,44 +259,44 @@ export const NewClassUpdate: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-24 md:pb-8">
       {/* Top Banner / Heading */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">New Class Update</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">New Class Update</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
           Record class details, assign new homework, and review previous unchecked assignments in one step.
         </p>
       </div>
 
       {/* Success Notification */}
       {successMessage && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-emerald-800 shadow-sm animate-fadeIn">
+        <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 sm:gap-3 text-emerald-800 shadow-xs animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-semibold text-emerald-950">Record Saved Successfully</h4>
-            <p className="text-sm text-emerald-800 mt-0.5">{successMessage}</p>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-emerald-950 text-sm">Record Saved Successfully</h4>
+            <p className="text-xs sm:text-sm text-emerald-800 mt-0.5">{successMessage}</p>
           </div>
           <button
             onClick={() => navigate('/history')}
-            className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
           >
-            View History
+            History
           </button>
         </div>
       )}
 
       {/* Duplicate Warning Modal / Banner */}
       {duplicateWarning && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900 shadow-sm">
+        <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 sm:gap-3 text-amber-900 shadow-xs">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-bold text-amber-950">Potential Duplicate Record</h4>
-            <p className="text-sm text-amber-800 mt-1">{duplicateWarning}</p>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-amber-950 text-sm">Potential Duplicate Record</h4>
+            <p className="text-xs sm:text-sm text-amber-800 mt-0.5">{duplicateWarning}</p>
           </div>
           <button
             type="button"
             onClick={() => setDuplicateWarning(null)}
-            className="text-xs text-amber-700 hover:text-amber-900 font-semibold"
+            className="text-xs text-amber-700 hover:text-amber-900 font-semibold shrink-0"
           >
             Dismiss
           </button>
@@ -305,20 +305,20 @@ export const NewClassUpdate: React.FC = () => {
 
       {/* Error Notification */}
       {error && (
-        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-800 shadow-sm">
+        <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 sm:gap-3 text-rose-800 shadow-xs">
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-rose-950">Save Failed</h4>
-            <p className="text-sm text-rose-700 mt-0.5">{error}</p>
+          <div className="min-w-0">
+            <h4 className="font-semibold text-rose-950 text-sm">Save Failed</h4>
+            <p className="text-xs sm:text-sm text-rose-700 mt-0.5">{error}</p>
           </div>
         </div>
       )}
 
       {/* Main Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 shadow-xs divide-y divide-slate-100">
         
         {/* Section 1: Instructor & Student Header */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* Instructor Field (Prefilled from Auth / URL) */}
@@ -397,7 +397,7 @@ export const NewClassUpdate: React.FC = () => {
         </div>
 
         {/* Section 2: Date, Duration, Booklet */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
             {/* Class Date */}
@@ -413,7 +413,7 @@ export const NewClassUpdate: React.FC = () => {
                   type="date"
                   value={classDate}
                   onChange={(e) => setClassDate(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                   required
                 />
               </div>
@@ -441,7 +441,7 @@ export const NewClassUpdate: React.FC = () => {
                   placeholder="e.g. 15-6 or Booklet 12"
                   value={bookletNumber}
                   onChange={(e) => setBookletNumber(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                 />
               </div>
             </div>
@@ -449,7 +449,7 @@ export const NewClassUpdate: React.FC = () => {
         </div>
 
         {/* Section 3: Classwork & Homework Inputs */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           {/* Classwork (CW) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -468,7 +468,7 @@ export const NewClassUpdate: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center justify-between">
               <span>HW (Assigned Homework)</span>
-              <span className="text-xs text-slate-400 font-normal">Creates a trackable homework assignment</span>
+              <span className="text-xs text-slate-400 font-normal">Creates trackable HW</span>
             </label>
             <textarea
               rows={3}
@@ -480,8 +480,8 @@ export const NewClassUpdate: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 4: Previous Pending Homework Review Box (Prominently displayed) */}
-        <div className="p-6 bg-slate-50/70 border-t border-slate-200">
+        {/* Section 4: Previous Pending Homework Review Box */}
+        <div className="p-4 sm:p-6 bg-slate-50/70 border-t border-slate-200">
           <PendingHomeworkList
             student={selectedStudentObj}
             subject={selectedSubjectObj}
@@ -496,21 +496,21 @@ export const NewClassUpdate: React.FC = () => {
         </div>
 
         {/* Action Button Footer */}
-        <div className="p-6 bg-slate-50 flex items-center justify-between rounded-b-2xl">
-          <div className="text-xs text-slate-500">
+        <div className="p-4 sm:p-6 bg-slate-50 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-b-2xl">
+          <div className="text-xs text-slate-500 text-center sm:text-left">
             {selectedHwIds.length > 0 ? (
               <span className="font-semibold text-emerald-700">
-                ✓ {selectedHwIds.length} pending homework item{selectedHwIds.length > 1 ? 's' : ''} will be marked as checked upon save
+                ✓ {selectedHwIds.length} pending homework item{selectedHwIds.length > 1 ? 's' : ''} will be checked off
               </span>
             ) : (
-              <span>No previous homework selected to check off</span>
+              <span>No previous homework selected</span>
             )}
           </div>
 
           <button
             type="submit"
             disabled={saving || !selectedStudentId}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white text-sm font-semibold rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white text-sm font-semibold rounded-xl shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
             {saving ? (
               <>

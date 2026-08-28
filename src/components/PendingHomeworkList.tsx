@@ -62,10 +62,10 @@ export const PendingHomeworkList: React.FC<PendingHomeworkListProps> = ({
   // 3. Clean state: No pending homework
   if (pendingHomework.length === 0) {
     return (
-      <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 text-emerald-900 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+      <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 sm:p-5 text-emerald-900 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+            <div className="p-2 sm:p-2.5 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
@@ -81,7 +81,7 @@ export const PendingHomeworkList: React.FC<PendingHomeworkListProps> = ({
           <button
             type="button"
             onClick={onToggleSubjectFilter}
-            className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+            className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors shrink-0 self-end sm:self-auto"
           >
             {filterAllSubjects ? 'Filter: All Subjects' : `Filter: ${subject?.name || 'Current'} Only`}
           </button>
@@ -93,43 +93,43 @@ export const PendingHomeworkList: React.FC<PendingHomeworkListProps> = ({
   const allSelected = pendingHomework.length > 0 && selectedIds.length === pendingHomework.length;
 
   return (
-    <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/60 border-2 border-amber-300/90 rounded-2xl p-5 shadow-sm">
+    <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/60 border-2 border-amber-300/90 rounded-2xl p-3.5 sm:p-5 shadow-xs">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-amber-200 mb-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-amber-500 text-white rounded-xl shadow-xs">
-            <AlertCircle className="w-5 h-5" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200 mb-3">
+        <div className="flex items-start sm:items-center gap-2.5">
+          <div className="p-1.5 sm:p-2 bg-amber-500 text-white rounded-xl shadow-xs shrink-0 mt-0.5 sm:mt-0">
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-amber-950">
                 Previous Pending Homework
               </h3>
-              <span className="text-xs font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full">
                 {pendingHomework.length} Unchecked
               </span>
             </div>
             <p className="text-xs text-amber-800 mt-0.5">
-              Review and check off completed previous homework for <span className="font-semibold">{student.name}</span> ({subject?.name}):
+              Review and check off previous homework for <span className="font-semibold">{student.name}</span> ({subject?.name}):
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
           <button
             type="button"
             onClick={onToggleSubjectFilter}
-            className="text-xs font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition-colors border border-amber-300"
+            className="text-[11px] sm:text-xs font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition-colors border border-amber-300"
             title="Toggle between current subject and all subjects"
           >
-            {filterAllSubjects ? 'Showing: All Subjects' : `Showing: ${subject?.name || 'Subject'}`}
+            {filterAllSubjects ? 'All Subjects' : (subject?.name || 'Subject')}
           </button>
 
           <button
             type="button"
             onClick={onToggleAll}
-            className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded-lg shadow-xs transition-colors"
+            className="text-[11px] sm:text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded-lg shadow-xs transition-colors"
           >
             {allSelected ? 'Uncheck All' : 'Select All'}
           </button>
