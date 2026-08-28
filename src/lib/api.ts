@@ -691,5 +691,44 @@ export const api = {
         instructor: db.instructors.find(i => i.id === h.checked_by)
       }))
       .sort((a, b) => b.assigned_date.localeCompare(a.assigned_date));
+  },
+
+  // Change currently logged-in user's own password
+  async changeMyPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword.trim(),
+      });
+      if (error) throw error;
+      return { success: true, message: 'Your password has been changed successfully!' };
+    }
+
+    // Mock update
+    return { success: true, message: 'Password updated successfully in local sandbox mode.' };
+  },
+
+  // Admin resets an instructor's password
+  async adminSetInstructorPassword(instructorEmail: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_set_user_password', {
+        p_user_email: instructorEmail.trim(),
+        p_new_password: newPassword.trim(),
+      });
+
+      if (error) throw error;
+      return data || { success: true, message: `Password for ${instructorEmail} updated successfully!` };
+    }
+
+    // Mock update
+    return { success: true, message: `Password for ${instructorEmail} reset successfully in local sandbox mode.` };
   }
 };
+

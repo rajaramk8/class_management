@@ -15,7 +15,16 @@ import {
   Brain,
   Plus, 
   ShieldCheck, 
-  Edit3
+  Edit3,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  X,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 
 export const AdminManagement: React.FC = () => {
@@ -41,6 +50,15 @@ export const AdminManagement: React.FC = () => {
   const [editEngLevel, setEditEngLevel] = useState<string>('');
   const [editBtmLevel, setEditBtmLevel] = useState<string>('');
   const [editCtmLevel, setEditCtmLevel] = useState<string>('');
+
+  // Admin Set Instructor Password Modal States
+  const [passwordModalInstructor, setPasswordModalInstructor] = useState<Instructor | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState<string | null>(null);
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -75,7 +93,7 @@ export const AdminManagement: React.FC = () => {
         notes: newStudentNotes.trim() || undefined,
         default_english_level: newStudentEnglishLevel,
         default_btm_level: newStudentBtmLevel,
-        default_ctm_level: newStudentBtmLevel === 'Summit' ? 'X' : newStudentCtmLevel,
+        default_ctm_level: newStudentBtmLevel === 'Summit' ? 'X' : (newStudentBtmLevel === 'None' ? 'None' : newStudentCtmLevel),
         active: true,
       });
       setNewStudentName('');
@@ -99,9 +117,9 @@ export const AdminManagement: React.FC = () => {
 
   const startEditStudent = (s: Student) => {
     setEditingStudentId(s.id);
-    setEditEngLevel(s.default_english_level || 'H');
-    setEditBtmLevel(s.default_btm_level || '12');
-    setEditCtmLevel(s.default_ctm_level || '10');
+    setEditEngLevel(s.default_english_level || 'None');
+    setEditBtmLevel(s.default_btm_level || 'None');
+    setEditCtmLevel(s.default_ctm_level || 'None');
   };
 
   const saveStudentLevels = async (studentId: string) => {
@@ -109,7 +127,7 @@ export const AdminManagement: React.FC = () => {
       await api.updateStudent(studentId, {
         default_english_level: editEngLevel,
         default_btm_level: editBtmLevel,
-        default_ctm_level: editBtmLevel === 'Summit' ? 'X' : editCtmLevel,
+        default_ctm_level: editBtmLevel === 'Summit' ? 'X' : (editBtmLevel === 'None' ? 'None' : editCtmLevel),
       });
       setEditingStudentId(null);
       await loadAll();
@@ -138,6 +156,43 @@ export const AdminManagement: React.FC = () => {
     }
   };
 
+  // Generate strong random password
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    let pass = '';
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setAdminNewPassword(pass);
+  };
+
+  const handleCopyPassword = () => {
+    if (adminNewPassword) {
+      navigator.clipboard.writeText(adminNewPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleAdminResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModalInstructor?.email || !adminNewPassword) return;
+
+    try {
+      setPasswordResetLoading(true);
+      setPasswordResetError(null);
+      setPasswordResetSuccess(null);
+
+      const res = await api.adminSetInstructorPassword(passwordModalInstructor.email, adminNewPassword);
+      setPasswordResetSuccess(res.message || `Password for ${passwordModalInstructor.name} updated!`);
+    } catch (err: any) {
+      console.error(err);
+      setPasswordResetError(err.message || 'Failed to update password. Make sure user exists in Supabase Auth.');
+    } finally {
+      setPasswordResetLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -158,7 +213,7 @@ export const AdminManagement: React.FC = () => {
           Master Data & Curriculum Administration
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
-          Configure students, default levels (English, Math BTM Summit/1-32, CTM 1-32/X), instructors, and curriculum structures.
+          Configure students, default levels (English, Math BTM / CTM / None), instructors, password resets, and curriculum structures.
         </p>
       </div>
 
@@ -185,7 +240,7 @@ export const AdminManagement: React.FC = () => {
           }`}
         >
           <UserPlus className="w-4 h-4" />
-          Instructors ({instructors.length})
+          Instructors & Passwords ({instructors.length})
         </button>
 
         <button
@@ -478,7 +533,7 @@ export const AdminManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Instructors */}
+      {/* Tab 2: Instructors & Password Management */}
       {activeTab === 'instructors' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm h-fit">
@@ -521,19 +576,42 @@ export const AdminManagement: React.FC = () => {
 
           <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <h3 className="font-bold text-slate-800 text-sm">Instructor Master List</h3>
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm">Instructor Master List & Security</h3>
+                <p className="text-xs text-slate-500">Admins can update or reset passwords for any instructor</p>
+              </div>
               <span className="text-xs text-slate-500">{instructors.length} Instructors</span>
             </div>
             <div className="divide-y divide-slate-100">
               {instructors.map((inst) => (
-                <div key={inst.id} className="p-4 flex items-center justify-between">
+                <div key={inst.id} className="p-4 flex items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-semibold text-slate-900 text-sm">{inst.name}</h4>
-                    <p className="text-xs text-slate-500">{inst.email || 'No email specified'}</p>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-slate-900 text-sm">{inst.name}</h4>
+                      <span className="inline-flex items-center text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">{inst.email || 'No email specified'}</p>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Active
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {inst.email && (
+                      <button
+                        onClick={() => {
+                          setPasswordModalInstructor(inst);
+                          setAdminNewPassword('');
+                          setPasswordResetSuccess(null);
+                          setPasswordResetError(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
+                        title="Set / Reset Password"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Set Password</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -613,6 +691,113 @@ export const AdminManagement: React.FC = () => {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Admin Set Password Modal */}
+      {passwordModalInstructor && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setPasswordModalInstructor(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Set Instructor Password</h3>
+                <p className="text-xs text-slate-500">
+                  Update password for <span className="font-semibold text-slate-800">{passwordModalInstructor.name}</span> ({passwordModalInstructor.email})
+                </p>
+              </div>
+            </div>
+
+            {passwordResetError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{passwordResetError}</span>
+              </div>
+            )}
+
+            {passwordResetSuccess && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{passwordResetSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAdminResetPassword} className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    New Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-xs text-sky-600 hover:text-sky-700 font-semibold inline-flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Auto-Generate
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter new password (min 6 chars)..."
+                    value={adminNewPassword}
+                    onChange={(e) => setAdminNewPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none pr-16 font-mono"
+                  />
+                  <div className="absolute right-2 top-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleCopyPassword}
+                      className="p-1 text-slate-400 hover:text-slate-600"
+                      title="Copy Password"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="p-1 text-slate-400 hover:text-slate-600"
+                    >
+                      {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalInstructor(null)}
+                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordResetLoading || !adminNewPassword}
+                  className="flex-1 py-2.5 px-4 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  {passwordResetLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  ) : (
+                    'Set Password'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

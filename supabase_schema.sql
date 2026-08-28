@@ -294,6 +294,51 @@ END;
 $$;
 
 -- ==============================================================================
+-- 5.1 ADMIN RPC: SET / RESET INSTRUCTOR PASSWORD
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.admin_set_user_password(
+    p_user_email TEXT,
+    p_new_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_user_id UUID;
+BEGIN
+    -- Verify caller is an admin
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can reset instructor passwords.';
+    END IF;
+
+    IF p_new_password IS NULL OR length(trim(p_new_password)) < 6 THEN
+        RAISE EXCEPTION 'Password must be at least 6 characters long.';
+    END IF;
+
+    SELECT id INTO v_user_id 
+    FROM auth.users 
+    WHERE LOWER(email) = LOWER(trim(p_user_email)) 
+    LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'No user account found in Auth with email: %', p_user_email;
+    END IF;
+
+    UPDATE auth.users
+    SET 
+        encrypted_password = crypt(trim(p_new_password), gen_salt('bf')),
+        updated_at = timezone('utc'::text, now())
+    WHERE id = v_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true, 
+        'message', 'Password updated successfully for ' || p_user_email
+    );
+END;
+$$;
+
+-- ==============================================================================
 -- 6. ROW LEVEL SECURITY (RLS) & POLICIES
 -- ==============================================================================
 
