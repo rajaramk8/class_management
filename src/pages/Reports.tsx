@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { ClassUpdate, Homework, Student, Instructor, Subject } from '../types';
 import { formatLevelDisplay } from '../constants/levels';
 import { 
@@ -8,11 +9,15 @@ import {
   BookOpen, 
   CheckCircle2, 
   AlertCircle, 
-  Printer 
+  Printer,
+  UserCheck
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export const Reports: React.FC = () => {
+  const { user, currentInstructor } = useAuth();
+  const isInstructor = user?.role !== 'admin';
+
   const [classUpdates, setClassUpdates] = useState<ClassUpdate[]>([]);
   const [homeworkList, setHomeworkList] = useState<Homework[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -31,6 +36,11 @@ export const Reports: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
 
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Determine effective instructor ID: If logged in as Instructor, lock to their own ID
+  const effectiveInstructorId = isInstructor 
+    ? (currentInstructor?.id || '') 
+    : selectedInstructorId;
 
   useEffect(() => {
     async function loadData() {
@@ -72,7 +82,7 @@ export const Reports: React.FC = () => {
         const [classes, hw] = await Promise.all([
           api.getClassUpdates({
             studentId: selectedStudentId || undefined,
-            instructorId: selectedInstructorId || undefined,
+            instructorId: effectiveInstructorId || undefined,
             subjectId: selectedSubjectId || undefined,
             startDate: startDate,
             endDate: endDate,
@@ -91,7 +101,7 @@ export const Reports: React.FC = () => {
     if (startDate && endDate) {
       fetchReportData();
     }
-  }, [startDate, endDate, selectedStudentId, selectedInstructorId, selectedSubjectId]);
+  }, [startDate, endDate, selectedStudentId, effectiveInstructorId, selectedSubjectId]);
 
   // Aggregate Metrics
   const totalClasses = classUpdates.length;
@@ -100,6 +110,8 @@ export const Reports: React.FC = () => {
 
   const pendingHwCount = homeworkList.filter(h => !h.checked).length;
   const checkedHwCount = homeworkList.filter(h => h.checked).length;
+
+  const instructorDisplayName = currentInstructor?.name || user?.full_name || 'Instructor';
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
@@ -111,7 +123,14 @@ export const Reports: React.FC = () => {
             Class & Homework Reports
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Detailed performance metrics, student levels, and homework summaries.
+            {isInstructor ? (
+              <span className="inline-flex items-center gap-1 text-slate-600 font-medium">
+                <UserCheck className="w-3.5 h-3.5 text-sky-600" />
+                Viewing performance metrics and class history for: <strong className="text-slate-900">{instructorDisplayName}</strong>
+              </span>
+            ) : (
+              'Detailed performance metrics, student levels, and homework summaries across all instructors.'
+            )}
           </p>
         </div>
 
@@ -126,7 +145,7 @@ export const Reports: React.FC = () => {
 
       {/* Filter Control Box */}
       <div className="no-print bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 mb-4 sm:mb-6 shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 mb-2">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${!isInstructor ? 'xl:grid-cols-6' : 'xl:grid-cols-5'} gap-2.5 sm:gap-3 mb-2`}>
           
           {/* Preset Selector */}
           <div>
@@ -206,24 +225,26 @@ export const Reports: React.FC = () => {
             </select>
           </div>
 
-          {/* Instructor Filter */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">
-              Instructor Filter
-            </label>
-            <select
-              value={selectedInstructorId}
-              onChange={(e) => setSelectedInstructorId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
-            >
-              <option value="">All Instructors</option>
-              {instructors.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Instructor Filter: ONLY SHOWN IF ADMIN */}
+          {!isInstructor && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">
+                Instructor Filter
+              </label>
+              <select
+                value={selectedInstructorId}
+                onChange={(e) => setSelectedInstructorId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">All Instructors</option>
+                {instructors.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Subject Filter */}
           <div>
@@ -294,9 +315,14 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Detailed Student Report Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden mb-8">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="font-bold text-slate-800 text-base">Class Breakdown & Summary</h3>
+          <div>
+            <h3 className="font-bold text-slate-800 text-base">Class Breakdown & Summary</h3>
+            {isInstructor && (
+              <span className="text-xs text-slate-500">Instructor: {instructorDisplayName}</span>
+            )}
+          </div>
           <span className="text-xs text-slate-500">{classUpdates.length} records in range</span>
         </div>
 
@@ -312,7 +338,7 @@ export const Reports: React.FC = () => {
                 <tr className="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wider border-b border-slate-200">
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Student</th>
-                  <th className="py-3 px-4">Instructor</th>
+                  {!isInstructor && <th className="py-3 px-4">Instructor</th>}
                   <th className="py-3 px-4">Subject</th>
                   <th className="py-3 px-4">Level(s)</th>
                   <th className="py-3 px-4">Duration</th>
@@ -335,7 +361,9 @@ export const Reports: React.FC = () => {
                     <tr key={c.id} className="hover:bg-slate-50/60">
                       <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">{c.class_date}</td>
                       <td className="py-3 px-4 font-medium text-slate-800 whitespace-nowrap">{c.student?.name}</td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{c.instructor?.name}</td>
+                      {!isInstructor && (
+                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{c.instructor?.name}</td>
+                      )}
                       <td className="py-3 px-4 font-semibold text-slate-700 whitespace-nowrap">{c.subject?.name}</td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span className="inline-flex items-center text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">
@@ -351,7 +379,7 @@ export const Reports: React.FC = () => {
                 })}
                 {classUpdates.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={!isInstructor ? 9 : 8} className="py-8 text-center text-slate-400">
                       No classes recorded in the selected date range.
                     </td>
                   </tr>
