@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { BookOpen, Lock, Mail, ArrowRight, UserCheck, ShieldCheck, Database, Info } from 'lucide-react';
@@ -12,6 +12,16 @@ export const Login: React.FC = () => {
 
   const { signInWithSupabase, signInDemo } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Check query string parameters to conditionally hide sandbox
+  // Examples to hide: ?nosandbox, ?nosandbox=true, ?nosandbox=1, ?sandbox=false, ?sandbox=0
+  const hideSandbox = 
+    searchParams.has('nosandbox') ||
+    searchParams.get('nosandbox') === 'true' || 
+    searchParams.get('nosandbox') === '1' || 
+    searchParams.get('sandbox') === 'false' || 
+    searchParams.get('sandbox') === '0';
 
   const handleSupabaseLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,48 +135,52 @@ export const Login: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick Demo Access Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-slate-400 font-medium">Instant Test Sandbox</span>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('instructor')}
-              className="w-full py-2.5 px-4 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-sky-600" />
-                <span>Sandbox: Log in as Instructor (Raj)</span>
+          {/* Conditional Instant Test Sandbox Section */}
+          {!hideSandbox && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-slate-400 font-medium">Instant Test Sandbox</span>
+                </div>
               </div>
-              <span className="text-sky-600 font-bold">1-Click</span>
-            </button>
 
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('admin')}
-              className="w-full py-2.5 px-4 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                <span>Sandbox: Log in as Administrator</span>
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('instructor')}
+                  className="w-full py-2.5 px-4 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-sky-600" />
+                    <span>Sandbox: Log in as Instructor (Raj)</span>
+                  </div>
+                  <span className="text-sky-600 font-bold">1-Click</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('admin')}
+                  className="w-full py-2.5 px-4 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    <span>Sandbox: Log in as Administrator</span>
+                  </div>
+                  <span className="text-indigo-600 font-bold">1-Click</span>
+                </button>
               </div>
-              <span className="text-indigo-600 font-bold">1-Click</span>
-            </button>
-          </div>
 
-          <div className="mt-4 p-2.5 bg-slate-50 rounded-lg flex items-start gap-2 text-[11px] text-slate-500">
-            <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-            <span>
-              <strong>Instant Sandbox:</strong> Uses local mock storage to let you test and preview UI features immediately without entering credentials.
-            </span>
-          </div>
+              <div className="mt-4 p-2.5 bg-slate-50 rounded-lg flex items-start gap-2 text-[11px] text-slate-500">
+                <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Instant Sandbox:</strong> Uses local mock storage to let you test and preview UI features immediately without entering credentials. (Hide via URL query: <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">?nosandbox=1</code>).
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
