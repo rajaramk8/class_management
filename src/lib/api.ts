@@ -7,6 +7,7 @@ import {
   ClassUpdate, 
   Homework, 
   SaveClassUpdatePayload,
+  UpdateClassUpdatePayload,
   UserProfile
 } from '../types';
 import { 
@@ -729,6 +730,157 @@ export const api = {
 
     // Mock update
     return { success: true, message: `Password for ${instructorEmail} reset successfully in local sandbox mode.` };
+  },
+
+  // Update Existing Class Record
+  async updateClassUpdate(id: string, payload: UpdateClassUpdatePayload): Promise<{ success: boolean; message?: string }> {
+    if (isSupabaseConfigured) {
+      // 1. Try calling the dedicated RPC
+      const { data: rpcData, error: rpcError } = await supabase.rpc('update_class_update', {
+        p_class_update_id: id,
+        p_student_id: payload.student_id,
+        p_instructor_id: payload.instructor_id,
+        p_subject_id: payload.subject_id,
+        p_level_id: payload.level_id || null,
+        p_english_level: payload.english_level || null,
+        p_btm_level: payload.btm_level || null,
+        p_ctm_level: payload.ctm_level || null,
+        p_class_date: payload.class_date,
+        p_duration_minutes: payload.duration_minutes,
+        p_booklet_number: payload.booklet_number || null,
+        p_cw: payload.cw || null,
+        p_hw: payload.hw || null,
+      });
+
+      if (!rpcError) {
+        return rpcData || { success: true };
+      }
+
+      // Fallback: direct table update if RPC migration hasn't been run yet
+      const { error: updateError } = await supabase
+        .from('class_updates')
+        .update({
+          student_id: payload.student_id,
+          instructor_id: payload.instructor_id,
+          subject_id: payload.subject_id,
+          level_id: payload.level_id || null,
+          english_level: payload.english_level || null,
+          btm_level: payload.btm_level || null,
+          ctm_level: payload.ctm_level || null,
+          class_date: payload.class_date,
+          duration_minutes: payload.duration_minutes,
+          booklet_number: payload.booklet_number || null,
+          cw: payload.cw || null,
+          hw: payload.hw || null,
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // Sync homework table if hw was updated
+      if (payload.hw !== undefined) {
+        const { data: existingHw } = await supabase
+          .from('homework')
+          .select('id')
+          .eq('class_update_id', id)
+          .maybeSingle();
+
+        if (payload.hw && payload.hw.trim()) {
+          if (existingHw) {
+            await supabase
+              .from('homework')
+              .update({
+                homework_text: payload.hw.trim(),
+                assigned_date: payload.class_date,
+                student_id: payload.student_id,
+                subject_id: payload.subject_id,
+              })
+              .eq('id', existingHw.id);
+          } else if (payload.student_id && payload.subject_id && payload.class_date) {
+            await supabase.from('homework').insert([
+              {
+                student_id: payload.student_id,
+                class_update_id: id,
+                subject_id: payload.subject_id,
+                homework_text: payload.hw.trim(),
+                assigned_date: payload.class_date,
+                checked: false,
+              },
+            ]);
+          }
+        }
+      }
+
+      return { success: true };
+    }
+
+    // Mock DB update
+    const db = getMockDB();
+    const idx = db.class_updates.findIndex(c => c.id === id);
+    if (idx === -1) throw new Error('Class update record not found');
+
+    const updated = {
+      ...db.class_updates[idx],
+      ...payload,
+      updated_at: new Date().toISOString()
+    };
+    db.class_updates[idx] = updated;
+
+    // Sync student default levels if updated
+    if (payload.student_id) {
+      const sIdx = db.students.findIndex(s => s.id === payload.student_id);
+      if (sIdx !== -1) {
+        if (payload.english_level) db.students[sIdx].default_english_level = payload.english_level;
+        if (payload.btm_level) db.students[sIdx].default_btm_level = payload.btm_level;
+        if (payload.ctm_level) db.students[sIdx].default_ctm_level = payload.ctm_level;
+      }
+    }
+
+    // Sync homework in MockDB
+    const hwIdx = db.homework.findIndex(h => h.class_update_id === id);
+    if (payload.hw && payload.hw.trim()) {
+      if (hwIdx !== -1) {
+        db.homework[hwIdx] = {
+          ...db.homework[hwIdx],
+          homework_text: payload.hw.trim(),
+          assigned_date: payload.class_date || db.homework[hwIdx].assigned_date,
+          student_id: payload.student_id || db.homework[hwIdx].student_id,
+          subject_id: payload.subject_id || db.homework[hwIdx].subject_id,
+          updated_at: new Date().toISOString()
+        };
+      } else {
+        db.homework.push({
+          id: 'hw-' + Date.now(),
+          student_id: payload.student_id || updated.student_id,
+          class_update_id: id,
+          subject_id: payload.subject_id || updated.subject_id,
+          homework_text: payload.hw.trim(),
+          assigned_date: payload.class_date || updated.class_date,
+          checked: false
+        });
+      }
+    } else if (payload.hw === '' && hwIdx !== -1 && !db.homework[hwIdx].checked) {
+      db.homework.splice(hwIdx, 1);
+    }
+
+    saveMockDB(db);
+    return { success: true };
+  },
+
+  // Delete Class Record (Admin)
+  async deleteClassUpdate(id: string): Promise<{ success: boolean }> {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('class_updates').delete().eq('id', id);
+      if (error) throw error;
+      return { success: true };
+    }
+
+    const db = getMockDB();
+    db.class_updates = db.class_updates.filter(c => c.id !== id);
+    db.homework = db.homework.filter(h => h.class_update_id !== id);
+    saveMockDB(db);
+    return { success: true };
   }
 };
+
 

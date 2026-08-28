@@ -108,3 +108,19 @@ export interface SaveClassUpdatePayload {
   hw?: string;
   checked_homework_ids: string[];
 }
+
+export interface UpdateClassUpdatePayload {
+  student_id?: string;
+  instructor_id?: string;
+  subject_id?: string;
+  level_id?: string | null;
+  english_level?: string | null;
+  btm_level?: string | null;
+  ctm_level?: string | null;
+  class_date?: string;
+  duration_minutes?: number;
+  booklet_number?: string | null;
+  cw?: string | null;
+  hw?: string | null;
+}
+

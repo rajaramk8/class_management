@@ -339,6 +339,157 @@ END;
 $$;
 
 -- ==============================================================================
+-- 5.2 ADMIN / AUTHOR RPC: UPDATE CLASS UPDATE
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.update_class_update(
+    p_class_update_id UUID,
+    p_student_id UUID,
+    p_instructor_id UUID,
+    p_subject_id UUID,
+    p_level_id UUID DEFAULT NULL,
+    p_english_level TEXT DEFAULT NULL,
+    p_btm_level TEXT DEFAULT NULL,
+    p_ctm_level TEXT DEFAULT NULL,
+    p_class_date DATE DEFAULT CURRENT_DATE,
+    p_duration_minutes INTEGER DEFAULT 60,
+    p_booklet_number TEXT DEFAULT NULL,
+    p_cw TEXT DEFAULT NULL,
+    p_hw TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_user_id UUID;
+    v_created_by UUID;
+    v_existing_hw_id UUID;
+BEGIN
+    v_user_id := auth.uid();
+
+    -- Check if record exists and caller has permission (Admin OR Original Author)
+    SELECT created_by INTO v_created_by
+    FROM public.class_updates
+    WHERE id = p_class_update_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Class update record with ID % not found', p_class_update_id;
+    END IF;
+
+    IF NOT (public.is_admin() OR v_created_by = v_user_id) THEN
+        RAISE EXCEPTION 'Access denied. Only administrators or the author can modify this class record.';
+    END IF;
+
+    -- 1. Update the Class Update record
+    UPDATE public.class_updates
+    SET
+        student_id = p_student_id,
+        instructor_id = p_instructor_id,
+        subject_id = p_subject_id,
+        level_id = p_level_id,
+        english_level = NULLIF(TRIM(p_english_level), ''),
+        btm_level = NULLIF(TRIM(p_btm_level), ''),
+        ctm_level = NULLIF(TRIM(p_ctm_level), ''),
+        class_date = p_class_date,
+        duration_minutes = p_duration_minutes,
+        booklet_number = NULLIF(TRIM(p_booklet_number), ''),
+        cw = NULLIF(TRIM(p_cw), ''),
+        hw = NULLIF(TRIM(p_hw), ''),
+        updated_at = timezone('utc'::text, now())
+    WHERE id = p_class_update_id;
+
+    -- 2. Update Student remembered default levels if provided
+    UPDATE public.students
+    SET
+        default_english_level = COALESCE(NULLIF(TRIM(p_english_level), ''), default_english_level),
+        default_btm_level = COALESCE(NULLIF(TRIM(p_btm_level), ''), default_btm_level),
+        default_ctm_level = COALESCE(NULLIF(TRIM(p_ctm_level), ''), default_ctm_level),
+        updated_at = timezone('utc'::text, now())
+    WHERE id = p_student_id;
+
+    -- 3. Synchronize linked Homework entity
+    SELECT id INTO v_existing_hw_id
+    FROM public.homework
+    WHERE class_update_id = p_class_update_id
+    LIMIT 1;
+
+    IF p_hw IS NOT NULL AND TRIM(p_hw) <> '' THEN
+        IF v_existing_hw_id IS NOT NULL THEN
+            UPDATE public.homework
+            SET
+                student_id = p_student_id,
+                subject_id = p_subject_id,
+                homework_text = TRIM(p_hw),
+                assigned_date = p_class_date,
+                updated_at = timezone('utc'::text, now())
+            WHERE id = v_existing_hw_id;
+        ELSE
+            INSERT INTO public.homework (
+                student_id,
+                class_update_id,
+                subject_id,
+                homework_text,
+                assigned_date,
+                checked
+            ) VALUES (
+                p_student_id,
+                p_class_update_id,
+                p_subject_id,
+                TRIM(p_hw),
+                p_class_date,
+                false
+            );
+        END IF;
+    ELSE
+        -- If homework text was cleared, remove unchecked homework record linked to this class
+        IF v_existing_hw_id IS NOT NULL THEN
+            DELETE FROM public.homework
+            WHERE id = v_existing_hw_id AND checked = false;
+        END IF;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'class_update_id', p_class_update_id,
+        'message', 'Class update modified successfully'
+    );
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE EXCEPTION 'A class record already exists for this student, instructor, and subject on %', p_class_date;
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Failed to update class record: %', SQLERRM;
+END;
+$$;
+
+-- ==============================================================================
+-- 5.3 ADMIN RPC: DELETE CLASS UPDATE
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.delete_class_update(
+    p_class_update_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can delete class records.';
+    END IF;
+
+    DELETE FROM public.class_updates
+    WHERE id = p_class_update_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'class_update_id', p_class_update_id,
+        'message', 'Class record deleted successfully'
+    );
+END;
+$$;
+
+
+-- ==============================================================================
 -- 6. ROW LEVEL SECURITY (RLS) & POLICIES
 -- ==============================================================================
 

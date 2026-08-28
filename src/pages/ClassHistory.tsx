@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { ClassUpdate, Student, Instructor, Subject } from '../types';
+import { EditClassModal } from '../components/EditClassModal';
 import { format, parseISO } from 'date-fns';
 import { 
   Search, 
@@ -11,16 +13,29 @@ import {
   ChevronDown, 
   ChevronUp, 
   X,
-  FileText
+  FileText,
+  Edit3,
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 import { formatLevelDisplay } from '../constants/levels';
 
 export const ClassHistory: React.FC = () => {
+  const { user, currentInstructor } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [updates, setUpdates] = useState<ClassUpdate[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit Modal State
+  const [editingClass, setEditingClass] = useState<ClassUpdate | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
 
   // Filters
   const [studentFilter, setStudentFilter] = useState('');
@@ -34,28 +49,60 @@ export const ClassHistory: React.FC = () => {
   // Expanded card tracking on mobile
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const [ups, studs, insts, subs] = await Promise.all([
-          api.getClassUpdates(),
-          api.getStudents(),
-          api.getInstructors(),
-          api.getSubjects(),
-        ]);
-        setUpdates(ups);
-        setStudents(studs);
-        setInstructors(insts);
-        setSubjects(subs);
-      } catch (err) {
-        console.error('Failed to load history', err);
-      } finally {
-        setLoading(false);
-      }
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [ups, studs, insts, subs] = await Promise.all([
+        api.getClassUpdates(),
+        api.getStudents(),
+        api.getInstructors(),
+        api.getSubjects(),
+      ]);
+      setUpdates(ups);
+      setStudents(studs);
+      setInstructors(insts);
+      setSubjects(subs);
+    } catch (err) {
+      console.error('Failed to load history', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
+
+  const handleEditClass = (u: ClassUpdate) => {
+    setEditingClass(u);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    loadData();
+    setSuccessBanner('Class record updated successfully!');
+    setTimeout(() => setSuccessBanner(null), 4000);
+  };
+
+  const handleDeleteClass = async (u: ClassUpdate) => {
+    const studentName = u.student?.name || 'this student';
+    const confirmMsg = `Are you sure you want to permanently delete the class record on ${u.class_date} for ${studentName}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setDeletingId(u.id);
+      await api.deleteClassUpdate(u.id);
+      await loadData();
+      setSuccessBanner('Class record deleted successfully.');
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to delete class record.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
 
   const activeFilterCount = [
     studentFilter,
@@ -177,6 +224,23 @@ export const ClassHistory: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Success Notification */}
+      {successBanner && (
+        <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-emerald-800 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold">{successBanner}</span>
+          </div>
+          <button
+            onClick={() => setSuccessBanner(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
 
       {/* Filter Bar Card (Always visible on sm+, collapsible on mobile) */}
       <div className={`bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 mb-4 sm:mb-6 shadow-xs ${showMobileFilters ? 'block' : 'hidden sm:block'}`}>
@@ -301,7 +365,7 @@ export const ClassHistory: React.FC = () => {
                   key={`card-${u.id}`} 
                   className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3 transition-shadow"
                 >
-                  {/* Top Row: Date, Student Name, Subject badge */}
+                  {/* Top Row: Date, Student Name, Subject badge & Actions */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-[11px] font-semibold text-slate-500 block">
@@ -315,17 +379,46 @@ export const ClassHistory: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                        u.subject?.name.toLowerCase() === 'math'
-                          ? 'bg-sky-100 text-sky-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {u.subject?.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {u.duration_minutes >= 60 ? `${u.duration_minutes / 60} hr` : `${u.duration_minutes}m`}
-                      </span>
+                    <div className="text-right flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                          u.subject?.name.toLowerCase() === 'math'
+                            ? 'bg-sky-100 text-sky-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {u.subject?.name}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {u.duration_minutes >= 60 ? `${u.duration_minutes / 60} hr` : `${u.duration_minutes}m`}
+                        </span>
+                      </div>
+
+                      {/* Action buttons (Mobile) */}
+                      <div className="flex items-center gap-1">
+                        {(isAdmin || (currentInstructor && u.instructor_id === currentInstructor.id)) && (
+                          <button
+                            onClick={() => handleEditClass(u)}
+                            className="p-1 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-md transition-colors"
+                            title="Edit Class Record"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteClass(u)}
+                            disabled={deletingId === u.id}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-50"
+                            title="Delete Class Record"
+                          >
+                            {deletingId === u.id ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-2 border-rose-600 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -392,6 +485,7 @@ export const ClassHistory: React.FC = () => {
                     <th className="py-3.5 px-4">Booklet</th>
                     <th className="py-3.5 px-4">Classwork (CW)</th>
                     <th className="py-3.5 px-4">Homework (HW)</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -408,6 +502,9 @@ export const ClassHistory: React.FC = () => {
                       ctmLevel: u.ctm_level,
                       levelName: u.level?.name,
                     });
+
+                    const canEdit = isAdmin || (currentInstructor && u.instructor_id === currentInstructor.id);
+                    const canDelete = isAdmin;
 
                     return (
                       <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
@@ -444,6 +541,33 @@ export const ClassHistory: React.FC = () => {
                         <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate" title={u.hw || undefined}>
                           {u.hw || '—'}
                         </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {canEdit && (
+                              <button
+                                onClick={() => handleEditClass(u)}
+                                className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                                title="Edit Class Record"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDeleteClass(u)}
+                                disabled={deletingId === u.id}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Delete Class Record"
+                              >
+                                {deletingId === u.id ? (
+                                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-rose-600 border-t-transparent" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -453,6 +577,22 @@ export const ClassHistory: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Edit Class Record Modal */}
+      <EditClassModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingClass(null);
+        }}
+        onSuccess={handleEditSuccess}
+        classUpdate={editingClass}
+        students={students}
+        instructors={instructors}
+        subjects={subjects}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 };
+
