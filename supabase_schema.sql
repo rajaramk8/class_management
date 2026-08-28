@@ -454,18 +454,23 @@ INSERT INTO public.levels (category, name, display_order)
 VALUES ('CTM', 'X', 99)
 ON CONFLICT (category, name) DO NOTHING;
 
--- 7.5 Seed Instructors
-INSERT INTO public.instructors (name, email, active) VALUES
-('Shriyam', 'shriyam@example.com', true),
-('Elma', 'elma@example.com', true),
-('Ayush', 'ayush@example.com', true),
-('Himanshi', 'himanshi@example.com', true),
-('Raj', 'raj@example.com', true),
-('Ravali', 'ravali@example.com', true),
-('Shaheen', 'shaheen@example.com', true),
-('Lincy', 'lincy@example.com', true),
-('Admin User', 'admin@example.com', true)
-ON CONFLICT (email) DO NOTHING;
+-- 7.5 Seed Instructors (with real IDs and email mappings)
+INSERT INTO public.instructors (id, name, email, active) VALUES
+('49185b37-5ee8-45b2-9b7b-15911c811741', 'Raj', 'rajaram.class@gmail.com', true),
+('3e02d957-db76-4e43-a671-5f53e564a7e3', 'Shriyam', 'chaturvedishriyam5@gmail.com', true),
+('7d95d723-012f-4619-a6f0-1f9c8af41190', 'Elma', 'boviii2024@gmail.com', true),
+('fa858f4f-1107-43bb-98cb-18f1bb76fef4', 'Ayush', 'ayushsinghbisht62005@gmail.com', true),
+('c2688236-e665-43d6-9db5-a4beda965391', 'Himanshi', 'himanshii1605@gmail.com', true),
+('56c3a3be-d207-4d4e-8c40-74456525fd01', 'Ravali', 'ravali@example.com', true),
+('7242cee1-6067-4cb1-9d03-f543649e8e1f', 'Shaheen', 'shaheensyed2003@gmail.com', true),
+('2294db43-39ae-4dbb-97ed-2a30548d5054', 'Lincy', 'lincyrose03@gmail.com', true),
+('1e25fd43-bfcb-4c95-a864-996691ee5ac8', 'Priya', 'priya@example.com', true),
+('441bbd32-ea6c-48a1-9670-ee65ea4587fa', 'Admin User', 'admin@example.com', true)
+ON CONFLICT (id) DO UPDATE 
+SET 
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  active = EXCLUDED.active;
 
 -- 7.6 Seed Students with configured English and Math BTM / CTM levels
 INSERT INTO public.students (name, default_english_level, default_btm_level, default_ctm_level, active) VALUES

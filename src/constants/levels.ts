@@ -54,17 +54,23 @@ export function formatLevelDisplay(params: {
   const isMath = params.subjectName?.toLowerCase() === 'math';
   
   if (isMath) {
+    if (params.btmLevel === 'None' && (params.ctmLevel === 'None' || !params.ctmLevel)) {
+      return 'None (Not Enrolled)';
+    }
+
     const parts: string[] = [];
-    if (params.btmLevel) {
+    if (params.btmLevel && params.btmLevel !== 'None') {
       parts.push(params.btmLevel === 'Summit' ? 'Summit (BTM)' : `BTM ${params.btmLevel}`);
     }
-    if (params.ctmLevel) {
+    if (params.ctmLevel && params.ctmLevel !== 'None') {
       parts.push(params.ctmLevel === 'X' ? 'CTM: X' : `CTM ${params.ctmLevel}`);
     }
     if (parts.length > 0) return parts.join(' | ');
+    return 'None';
   }
 
   if (params.englishLevel) {
+    if (params.englishLevel === 'None') return 'None (Not Enrolled)';
     return `Level ${params.englishLevel}`;
   }
 

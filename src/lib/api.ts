@@ -19,7 +19,7 @@ import {
 // ==========================================
 // LOCAL STORAGE DEMO MOCK STORE (FOR OFFLINE / INITIAL DEV)
 // ==========================================
-const MOCK_STORAGE_KEY = 'class_management_mock_db_v5';
+const MOCK_STORAGE_KEY = 'class_management_mock_db_v6';
 
 interface MockDB {
   students: Student[];
@@ -57,15 +57,16 @@ const mockCtmLevels: Level[] = MATH_CTM_LEVELS_DISPLAY_ORDER.map((lvl, idx) => (
 
 const initialMockDB: MockDB = {
   instructors: [
-    { id: 'inst-1', name: 'Shriyam', email: 'shriyam@example.com', active: true },
-    { id: 'inst-2', name: 'Elma', email: 'elma@example.com', active: true },
-    { id: 'inst-3', name: 'Ayush', email: 'ayush@example.com', active: true },
-    { id: 'inst-4', name: 'Himanshi', email: 'himanshi@example.com', active: true },
-    { id: 'inst-5', name: 'Raj', email: 'raj@example.com', active: true },
-    { id: 'inst-6', name: 'Ravali', email: 'ravali@example.com', active: true },
-    { id: 'inst-7', name: 'Shaheen', email: 'shaheen@example.com', active: true },
-    { id: 'inst-8', name: 'Lincy', email: 'lincy@example.com', active: true },
-    { id: 'inst-admin', name: 'Admin User', email: 'admin@example.com', active: true },
+    { id: '49185b37-5ee8-45b2-9b7b-15911c811741', name: 'Raj', email: 'rajaram.class@gmail.com', active: true },
+    { id: '3e02d957-db76-4e43-a671-5f53e564a7e3', name: 'Shriyam', email: 'chaturvedishriyam5@gmail.com', active: true },
+    { id: '7d95d723-012f-4619-a6f0-1f9c8af41190', name: 'Elma', email: 'boviii2024@gmail.com', active: true },
+    { id: 'fa858f4f-1107-43bb-98cb-18f1bb76fef4', name: 'Ayush', email: 'ayushsinghbisht62005@gmail.com', active: true },
+    { id: 'c2688236-e665-43d6-9db5-a4beda965391', name: 'Himanshi', email: 'himanshii1605@gmail.com', active: true },
+    { id: '56c3a3be-d207-4d4e-8c40-74456525fd01', name: 'Ravali', email: 'ravali@example.com', active: true },
+    { id: '7242cee1-6067-4cb1-9d03-f543649e8e1f', name: 'Shaheen', email: 'shaheensyed2003@gmail.com', active: true },
+    { id: '2294db43-39ae-4dbb-97ed-2a30548d5054', name: 'Lincy', email: 'lincyrose03@gmail.com', active: true },
+    { id: '1e25fd43-bfcb-4c95-a864-996691ee5ac8', name: 'Priya', email: 'priya@example.com', active: true },
+    { id: '441bbd32-ea6c-48a1-9670-ee65ea4587fa', name: 'Admin User', email: 'admin@example.com', active: true },
   ],
   students: [
     { 
@@ -103,7 +104,7 @@ const initialMockDB: MockDB = {
     { 
       id: 'stud-5', 
       name: 'Arohi', 
-      default_english_level: null, 
+      default_english_level: 'None', 
       default_btm_level: '17', 
       default_ctm_level: '15', 
       active: true 
@@ -111,7 +112,7 @@ const initialMockDB: MockDB = {
     { 
       id: 'stud-6', 
       name: 'Anay', 
-      default_english_level: null, 
+      default_english_level: 'None', 
       default_btm_level: '21', 
       default_ctm_level: '19', 
       active: true 
@@ -119,7 +120,7 @@ const initialMockDB: MockDB = {
     { 
       id: 'stud-7', 
       name: 'Swara', 
-      default_english_level: null, 
+      default_english_level: 'None', 
       default_btm_level: '22', 
       default_ctm_level: '20', 
       active: true 
@@ -144,8 +145,8 @@ const initialMockDB: MockDB = {
       id: 'stud-10', 
       name: 'Aadvik', 
       default_english_level: '5', 
-      default_btm_level: null, 
-      default_ctm_level: null, 
+      default_btm_level: 'None', 
+      default_ctm_level: 'None', 
       active: true 
     },
     { 
@@ -168,8 +169,8 @@ const initialMockDB: MockDB = {
       id: 'stud-13', 
       name: 'Mishti', 
       default_english_level: '6', 
-      default_btm_level: null, 
-      default_ctm_level: null, 
+      default_btm_level: 'None', 
+      default_ctm_level: 'None', 
       active: true 
     },
   ],
@@ -186,7 +187,7 @@ const initialMockDB: MockDB = {
     {
       id: 'cu-1',
       student_id: 'stud-1', // Arya
-      instructor_id: 'inst-1', // Shriyam
+      instructor_id: '3e02d957-db76-4e43-a671-5f53e564a7e3', // Shriyam
       subject_id: 'sub-2', // Math
       btm_level: '14',
       ctm_level: '13',
@@ -200,7 +201,7 @@ const initialMockDB: MockDB = {
     {
       id: 'cu-2',
       student_id: 'stud-1', // Arya
-      instructor_id: 'inst-2', // Elma
+      instructor_id: '7d95d723-012f-4619-a6f0-1f9c8af41190', // Elma
       subject_id: 'sub-1', // English
       english_level: '5',
       class_date: '2026-08-19',
@@ -213,7 +214,7 @@ const initialMockDB: MockDB = {
     {
       id: 'cu-3',
       student_id: 'stud-2', // Anish
-      instructor_id: 'inst-5', // Raj
+      instructor_id: '49185b37-5ee8-45b2-9b7b-15911c811741', // Raj
       subject_id: 'sub-2', // Math
       btm_level: 'Summit',
       ctm_level: 'X',
@@ -227,7 +228,7 @@ const initialMockDB: MockDB = {
     {
       id: 'cu-4',
       student_id: 'stud-3', // Anith Rao
-      instructor_id: 'inst-3', // Ayush
+      instructor_id: 'fa858f4f-1107-43bb-98cb-18f1bb76fef4', // Ayush
       subject_id: 'sub-2', // Math
       btm_level: 'Summit',
       ctm_level: 'X',
@@ -241,7 +242,7 @@ const initialMockDB: MockDB = {
     {
       id: 'cu-5',
       student_id: 'stud-9', // Anika
-      instructor_id: 'inst-4', // Himanshi
+      instructor_id: 'c2688236-e665-43d6-9db5-a4beda965391', // Himanshi
       subject_id: 'sub-1', // English
       english_level: 'F',
       class_date: '2026-08-22',
@@ -300,9 +301,9 @@ const initialMockDB: MockDB = {
     }
   ],
   profiles: [
-    { id: 'usr-admin', email: 'admin@example.com', full_name: 'Admin User', role: 'admin', instructor_id: 'inst-admin' },
-    { id: 'usr-raj', email: 'raj@example.com', full_name: 'Raj', role: 'instructor', instructor_id: 'inst-5' },
-    { id: 'usr-shriyam', email: 'shriyam@example.com', full_name: 'Shriyam', role: 'instructor', instructor_id: 'inst-1' },
+    { id: 'usr-admin', email: 'admin@example.com', full_name: 'Admin User', role: 'admin', instructor_id: '441bbd32-ea6c-48a1-9670-ee65ea4587fa' },
+    { id: 'usr-raj', email: 'rajaram.class@gmail.com', full_name: 'Raj', role: 'instructor', instructor_id: '49185b37-5ee8-45b2-9b7b-15911c811741' },
+    { id: 'usr-shriyam', email: 'chaturvedishriyam5@gmail.com', full_name: 'Shriyam', role: 'instructor', instructor_id: '3e02d957-db76-4e43-a671-5f53e564a7e3' },
   ]
 };
 
@@ -360,9 +361,9 @@ export const api = {
     const db = getMockDB();
     const student = db.students.find(s => s.id === studentId);
     return {
-      english_level: student?.default_english_level || '5',
-      btm_level: student?.default_btm_level || '14',
-      ctm_level: student?.default_ctm_level || '13',
+      english_level: student?.default_english_level || 'None',
+      btm_level: student?.default_btm_level || 'None',
+      ctm_level: student?.default_ctm_level || 'None',
     };
   },
 

@@ -109,15 +109,9 @@ export const NewClassUpdate: React.FC = () => {
 
       try {
         const lastLevels = await api.getStudentLastLevels(selectedStudentId);
-        if (lastLevels.english_level) {
-          setEnglishLevel(lastLevels.english_level);
-        }
-        if (lastLevels.btm_level) {
-          setBtmLevel(lastLevels.btm_level);
-        }
-        if (lastLevels.ctm_level) {
-          setCtmLevel(lastLevels.ctm_level);
-        }
+        setEnglishLevel(lastLevels.english_level || 'None');
+        setBtmLevel(lastLevels.btm_level || 'None');
+        setCtmLevel(lastLevels.ctm_level || 'None');
       } catch (err) {
         console.error('Error pre-filling student levels', err);
       }

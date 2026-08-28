@@ -228,15 +228,18 @@ export const AdminManagement: React.FC = () => {
                 <span className="block text-xs font-bold text-slate-700">Initial Level Assignment</span>
                 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-0.5">English Level (8 → Pre-A)</label>
+                  <label className="block text-[11px] font-medium text-slate-500 mb-0.5">English Level</label>
                   <select
                     value={newStudentEnglishLevel}
                     onChange={(e) => setNewStudentEnglishLevel(e.target.value)}
                     className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs"
                   >
-                    {ENGLISH_LEVELS_DISPLAY_ORDER.map(l => (
-                      <option key={l} value={l}>Level {l}</option>
-                    ))}
+                    <option value="None">🚫 None (Not Enrolled in English)</option>
+                    <optgroup label="English Levels (8 → Pre-A)">
+                      {ENGLISH_LEVELS_DISPLAY_ORDER.map(l => (
+                        <option key={l} value={l}>Level {l}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 
@@ -250,30 +253,42 @@ export const AdminManagement: React.FC = () => {
                         setNewStudentBtmLevel(val);
                         if (val === 'Summit') {
                           setNewStudentCtmLevel('X');
+                        } else if (val === 'None') {
+                          setNewStudentCtmLevel('None');
+                        } else if (newStudentCtmLevel === 'None') {
+                          setNewStudentCtmLevel('10');
                         }
                       }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs"
                     >
-                      {MATH_BTM_LEVELS_DISPLAY_ORDER.map(l => (
-                        <option key={l} value={l}>
-                          {l === 'Summit' ? '⭐ Summit' : `BTM ${l}`}
-                        </option>
-                      ))}
+                      <option value="None">🚫 None (Not Enrolled)</option>
+                      <optgroup label="Special Product">
+                        <option value="Summit">⭐ Summit</option>
+                      </optgroup>
+                      <optgroup label="BTM Levels (32 → 1)">
+                        {MATH_BTM_LEVELS_DISPLAY_ORDER.filter(l => l !== 'Summit').map(l => (
+                          <option key={l} value={l}>BTM {l}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Math CTM</label>
                     <select
-                      value={newStudentBtmLevel === 'Summit' ? 'X' : newStudentCtmLevel}
-                      disabled={newStudentBtmLevel === 'Summit'}
+                      value={newStudentBtmLevel === 'Summit' ? 'X' : (newStudentBtmLevel === 'None' ? 'None' : newStudentCtmLevel)}
+                      disabled={newStudentBtmLevel === 'Summit' || newStudentBtmLevel === 'None'}
                       onChange={(e) => setNewStudentCtmLevel(e.target.value)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs disabled:bg-slate-100"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs disabled:bg-slate-100 disabled:text-slate-500"
                     >
-                      {MATH_CTM_LEVELS_DISPLAY_ORDER.map(l => (
-                        <option key={l} value={l}>
-                          {l === 'X' ? 'X (N/A)' : `CTM ${l}`}
-                        </option>
-                      ))}
+                      <option value="None">None (Not Enrolled)</option>
+                      <optgroup label="CTM Levels (32 → 1)">
+                        {MATH_CTM_LEVELS_DISPLAY_ORDER.filter(l => l !== 'X').map(l => (
+                          <option key={l} value={l}>CTM {l}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Special">
+                        <option value="X">X (N/A / Summit)</option>
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -337,6 +352,7 @@ export const AdminManagement: React.FC = () => {
                                 onChange={(e) => setEditEngLevel(e.target.value)}
                                 className="w-full text-xs p-1 bg-white border border-slate-300 rounded"
                               >
+                                <option value="None">None (Not Enrolled)</option>
                                 {ENGLISH_LEVELS_DISPLAY_ORDER.map(l => (
                                   <option key={l} value={l}>Level {l}</option>
                                 ))}
@@ -351,10 +367,15 @@ export const AdminManagement: React.FC = () => {
                                   setEditBtmLevel(val);
                                   if (val === 'Summit') {
                                     setEditCtmLevel('X');
+                                  } else if (val === 'None') {
+                                    setEditCtmLevel('None');
+                                  } else if (editCtmLevel === 'None') {
+                                    setEditCtmLevel('10');
                                   }
                                 }}
                                 className="w-full text-xs p-1 bg-white border border-slate-300 rounded"
                               >
+                                <option value="None">None (Not Enrolled)</option>
                                 {MATH_BTM_LEVELS_DISPLAY_ORDER.map(l => (
                                   <option key={l} value={l}>
                                     {l === 'Summit' ? '⭐ Summit' : `BTM ${l}`}
@@ -365,11 +386,12 @@ export const AdminManagement: React.FC = () => {
                             <div>
                               <label className="text-[10px] text-slate-600 block">CTM Math</label>
                               <select
-                                value={editBtmLevel === 'Summit' ? 'X' : editCtmLevel}
-                                disabled={editBtmLevel === 'Summit'}
+                                value={editBtmLevel === 'Summit' ? 'X' : (editBtmLevel === 'None' ? 'None' : editCtmLevel)}
+                                disabled={editBtmLevel === 'Summit' || editBtmLevel === 'None'}
                                 onChange={(e) => setEditCtmLevel(e.target.value)}
-                                className="w-full text-xs p-1 bg-white border border-slate-300 rounded disabled:bg-slate-100"
+                                className="w-full text-xs p-1 bg-white border border-slate-300 rounded disabled:bg-slate-100 disabled:text-slate-500"
                               >
+                                <option value="None">None (Not Enrolled)</option>
                                 {MATH_CTM_LEVELS_DISPLAY_ORDER.map(l => (
                                   <option key={l} value={l}>
                                     {l === 'X' ? 'X (N/A)' : `CTM ${l}`}
@@ -395,15 +417,32 @@ export const AdminManagement: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-center gap-2 mt-2">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            English: Level {student.default_english_level || 'H'}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                            {student.default_btm_level === 'Summit' ? '⭐ BTM: Summit' : `BTM Level ${student.default_btm_level || '12'}`}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                            {student.default_ctm_level === 'X' ? 'CTM: X' : `CTM Level ${student.default_ctm_level || '10'}`}
-                          </span>
+                          {/* English Badge */}
+                          {(!student.default_english_level || student.default_english_level === 'None') ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              English: Not Enrolled
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              English: Level {student.default_english_level}
+                            </span>
+                          )}
+
+                          {/* Math Badges */}
+                          {(!student.default_btm_level || student.default_btm_level === 'None') ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              Math: Not Enrolled
+                            </span>
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                                {student.default_btm_level === 'Summit' ? '⭐ BTM: Summit' : `BTM Level ${student.default_btm_level}`}
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                {student.default_ctm_level === 'X' ? 'CTM: X' : `CTM Level ${student.default_ctm_level || '10'}`}
+                              </span>
+                            </>
+                          )}
                         </div>
                       )}
 
