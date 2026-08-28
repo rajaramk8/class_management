@@ -14,19 +14,20 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Check query string parameters to conditionally hide sandbox
-  // Examples to hide: ?nosandbox, ?nosandbox=true, ?nosandbox=1, ?sandbox=false, ?sandbox=0
-  const hideSandbox = 
-    searchParams.has('nosandbox') ||
-    searchParams.get('nosandbox') === 'true' || 
-    searchParams.get('nosandbox') === '1' || 
-    searchParams.get('sandbox') === 'false' || 
-    searchParams.get('sandbox') === '0';
+  // Display sandbox ONLY when ?displaysandbox is explicitly present in the query string
+  // Examples to show: ?displaysandbox, ?displaysandbox=true, ?displaysandbox=1, ?sandbox=true, ?sandbox=1
+  // By default (no parameter), sandbox is hidden.
+  const showSandbox = 
+    searchParams.has('displaysandbox') ||
+    searchParams.get('displaysandbox') === 'true' || 
+    searchParams.get('displaysandbox') === '1' || 
+    searchParams.get('sandbox') === 'true' || 
+    searchParams.get('sandbox') === '1';
 
   const handleSupabaseLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSupabaseConfigured) {
-      setError('Supabase connection URL/Key not detected. Please use the Instant Test Sandbox buttons below or configure your .env file.');
+      setError('Supabase connection URL/Key not detected in .env. Please configure your Supabase project or open with ?displaysandbox to test locally.');
       return;
     }
 
@@ -70,7 +71,7 @@ export const Login: React.FC = () => {
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full shadow-2xs">
               <Database className="w-3.5 h-3.5 text-amber-600" />
-              Offline / Local Sandbox Mode (No .env detected)
+              Offline / Local Mode (No .env detected)
             </span>
           )}
         </div>
@@ -128,15 +129,15 @@ export const Login: React.FC = () => {
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
               ) : (
                 <>
-                  <span>Sign In with Supabase</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Conditional Instant Test Sandbox Section */}
-          {!hideSandbox && (
+          {/* Conditional Instant Test Sandbox Section (Only shown when ?displaysandbox is passed in URL) */}
+          {showSandbox && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
@@ -176,7 +177,7 @@ export const Login: React.FC = () => {
               <div className="mt-4 p-2.5 bg-slate-50 rounded-lg flex items-start gap-2 text-[11px] text-slate-500">
                 <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Instant Sandbox:</strong> Uses local mock storage to let you test and preview UI features immediately without entering credentials. (Hide via URL query: <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">?nosandbox=1</code>).
+                  <strong>Instant Sandbox:</strong> Uses local mock storage to let you test and preview UI features immediately without entering credentials.
                 </span>
               </div>
             </>
