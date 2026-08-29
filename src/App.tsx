@@ -10,6 +10,7 @@ import { ClassHistory } from './pages/ClassHistory';
 import { Reports } from './pages/Reports';
 import { AdminManagement } from './pages/AdminManagement';
 import { Login } from './pages/Login';
+import { ParentReport } from './pages/ParentReport';
 
 export const App: React.FC = () => {
   return (
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
+              <Route path="/parent/:token" element={<ParentReport />} />
 
               {/* Protected Routes (Instructors & Admins) */}
               <Route element={<ProtectedRoute />}>

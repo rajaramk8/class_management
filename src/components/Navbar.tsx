@@ -30,6 +30,11 @@ export const Navbar: React.FC = () => {
     ...(user?.role === 'admin' ? [{ path: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
 
+  // Do not render staff navigation on public parent report portal or login screen
+  if (location.pathname.startsWith('/parent') || location.pathname === '/login') {
+    return null;
+  }
+
   return (
     <>
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-xs">

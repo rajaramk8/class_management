@@ -8,7 +8,12 @@ import {
   Homework, 
   SaveClassUpdatePayload,
   UpdateClassUpdatePayload,
-  UserProfile
+  UserProfile,
+  ParentAccess,
+  ParentFeedback,
+  ParentFeedbackStatus,
+  VerifyParentAccessResponse,
+  SubmitParentFeedbackParams
 } from '../types';
 import { 
   ENGLISH_LEVELS_DISPLAY_ORDER, 
@@ -20,7 +25,7 @@ import {
 // ==========================================
 // LOCAL STORAGE DEMO MOCK STORE (FOR OFFLINE / INITIAL DEV)
 // ==========================================
-const MOCK_STORAGE_KEY = 'class_management_mock_db_v6';
+const MOCK_STORAGE_KEY = 'class_management_mock_db_v7';
 
 interface MockDB {
   students: Student[];
@@ -30,6 +35,8 @@ interface MockDB {
   class_updates: ClassUpdate[];
   homework: Homework[];
   profiles: UserProfile[];
+  parent_access: (ParentAccess & { pin_plain?: string })[];
+  parent_feedback: ParentFeedback[];
 }
 
 const mockEnglishLevels: Level[] = ENGLISH_LEVELS_DISPLAY_ORDER.map((lvl, idx) => ({
@@ -305,6 +312,44 @@ const initialMockDB: MockDB = {
     { id: 'usr-admin', email: 'admin@example.com', full_name: 'Admin User', role: 'admin', instructor_id: '441bbd32-ea6c-48a1-9670-ee65ea4587fa' },
     { id: 'usr-raj', email: 'rajaram.class@gmail.com', full_name: 'Raj', role: 'instructor', instructor_id: '49185b37-5ee8-45b2-9b7b-15911c811741' },
     { id: 'usr-shriyam', email: 'chaturvedishriyam5@gmail.com', full_name: 'Shriyam', role: 'instructor', instructor_id: '3e02d957-db76-4e43-a671-5f53e564a7e3' },
+  ],
+  parent_access: [
+    { id: 'pa-1', student_id: 'stud-1', access_token: '7Kp92xQm-arya-sample-token-123', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-2', student_id: 'stud-2', access_token: '8Lq03yRn-anish-sample-token-456', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-3', student_id: 'stud-3', access_token: '9Mr14zSo-anith-sample-token-789', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-4', student_id: 'stud-4', access_token: '1Ns25aTp-pragathi-sample-012', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-5', student_id: 'stud-5', access_token: '2Ot36bUq-arohi-sample-345', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-6', student_id: 'stud-6', access_token: '3Pu47cVr-anay-sample-678', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-7', student_id: 'stud-7', access_token: '4Qv58dWs-swara-sample-901', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-8', student_id: 'stud-8', access_token: '5Rw69eXt-jia-sample-234', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-9', student_id: 'stud-9', access_token: '6Sx70fYu-anika-sample-567', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-10', student_id: 'stud-10', access_token: '7Ty81gZv-aadvik-sample-890', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-11', student_id: 'stud-11', access_token: '8Uz92hAw-arihan-sample-123', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-12', student_id: 'stud-12', access_token: '9Va03iBx-kiaan-sample-456', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' },
+    { id: 'pa-13', student_id: 'stud-13', access_token: '0Wb14jCy-mishti-sample-789', active: true, pin_plain: '1234', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' }
+  ],
+  parent_feedback: [
+    {
+      id: 'pf-1',
+      student_id: 'stud-1',
+      parent_access_id: 'pa-1',
+      rating: 'good',
+      feedback_text: 'Arya is really enjoying the math problem-solving sessions and feels much more confident!',
+      contact_requested: false,
+      status: 'new',
+      created_at: '2026-08-20T14:30:00Z'
+    },
+    {
+      id: 'pf-2',
+      student_id: 'stud-9',
+      parent_access_id: 'pa-9',
+      rating: 'needs_attention',
+      feedback_text: 'Anika is finding the reading comprehension questions a bit tricky. Could we get additional practice sheets?',
+      contact_requested: true,
+      contact_reason: 'difficulty',
+      status: 'new',
+      created_at: '2026-08-23T11:00:00Z'
+    }
   ]
 };
 
@@ -880,7 +925,402 @@ export const api = {
     db.homework = db.homework.filter(h => h.class_update_id !== id);
     saveMockDB(db);
     return { success: true };
+  },
+
+  // ==========================================
+  // PARENT PROGRESS REPORT & FEEDBACK API
+  // ==========================================
+
+  // 1. Verify Parent Token & PIN and get Report Data
+  async verifyParentAccess(token: string, pin: string): Promise<VerifyParentAccessResponse> {
+    if (!token || !pin) {
+      return { success: false, error: 'Token and PIN are required.' };
+    }
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('verify_parent_access', {
+        p_token: token.trim(),
+        p_pin: pin.trim(),
+      });
+
+      if (error) {
+        return { success: false, error: error.message || 'Failed to verify parent access.' };
+      }
+      return data as VerifyParentAccessResponse;
+    }
+
+    // MockDB Verification
+    const db = getMockDB();
+    const cleanToken = token.trim();
+    const cleanPin = pin.trim();
+
+    const pa = db.parent_access.find(p => p.access_token === cleanToken);
+    if (!pa || !pa.active) {
+      return { 
+        success: false, 
+        error: 'This report link is inactive or invalid. Please contact your learning centre.' 
+      };
+    }
+
+    // Check PIN (default '1234' or customized plain pin)
+    const validPin = pa.pin_plain || '1234';
+    if (cleanPin !== validPin) {
+      return {
+        success: false,
+        error: 'Incorrect PIN. Please check and try again.'
+      };
+    }
+
+    const student = db.students.find(s => s.id === pa.student_id);
+    if (!student) {
+      return { success: false, error: 'Student record not found.' };
+    }
+
+    // Build metrics & data
+    const studentClasses = db.class_updates
+      .filter(c => c.student_id === student.id)
+      .sort((a, b) => new Date(b.class_date).getTime() - new Date(a.class_date).getTime());
+
+    const now = new Date();
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const mtdClasses = studentClasses.filter(c => c.class_date.startsWith(currentMonthPrefix));
+
+    const totalHours = Number((studentClasses.reduce((acc, c) => acc + c.duration_minutes, 0) / 60).toFixed(1));
+    const mtdHours = Number((mtdClasses.reduce((acc, c) => acc + c.duration_minutes, 0) / 60).toFixed(1));
+
+    const pendingHw = db.homework
+      .filter(h => h.student_id === student.id && !h.checked)
+      .map(h => ({
+        ...h,
+        subject: db.subjects.find(s => s.id === h.subject_id),
+        class_update: db.class_updates.find(c => c.id === h.class_update_id)
+      }))
+      .sort((a, b) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime());
+
+    const completedHw = db.homework
+      .filter(h => h.student_id === student.id && h.checked)
+      .map(h => ({
+        ...h,
+        subject: db.subjects.find(s => s.id === h.subject_id),
+        instructor: db.instructors.find(i => i.id === h.checked_by),
+        class_update: db.class_updates.find(c => c.id === h.class_update_id)
+      }))
+      .sort((a, b) => new Date(b.checked_date || b.assigned_date).getTime() - new Date(a.checked_date || a.assigned_date).getTime())
+      .slice(0, 10);
+
+    const populatedClasses = studentClasses.slice(0, 15).map(c => ({
+      ...c,
+      subject: db.subjects.find(s => s.id === c.subject_id),
+      instructor: db.instructors.find(i => i.id === c.instructor_id)
+    }));
+
+    return {
+      success: true,
+      report: {
+        student: {
+          id: student.id,
+          name: student.name,
+          english_level: student.default_english_level,
+          btm_level: student.default_btm_level,
+          ctm_level: student.default_ctm_level,
+        },
+        summary: {
+          classes_this_month: mtdClasses.length,
+          hours_this_month: mtdHours,
+          total_classes: studentClasses.length,
+          total_hours: totalHours,
+          homework_completed: completedHw.length,
+          homework_pending: pendingHw.length,
+        },
+        recent_classes: populatedClasses,
+        pending_homework: pendingHw,
+        completed_homework: completedHw,
+        last_updated: studentClasses.length > 0 ? studentClasses[0].class_date : 'Recently'
+      }
+    };
+  },
+
+  // 2. Submit Parent Feedback
+  async submitParentFeedback(params: SubmitParentFeedbackParams): Promise<{ success: boolean; message: string }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('submit_parent_feedback', {
+        p_token: params.token.trim(),
+        p_pin: params.pin.trim(),
+        p_rating: params.rating || null,
+        p_feedback_text: params.feedback_text || null,
+        p_contact_requested: params.contact_requested,
+        p_contact_reason: params.contact_reason || null,
+      });
+
+      if (error) throw error;
+      return data || { success: true, message: 'Thank you! Feedback received.' };
+    }
+
+    // MockDB submit
+    const db = getMockDB();
+    const pa = db.parent_access.find(p => p.access_token === params.token.trim());
+    if (!pa) throw new Error('Invalid token');
+
+    const newFeedback: ParentFeedback = {
+      id: 'pf-' + Date.now(),
+      student_id: pa.student_id,
+      parent_access_id: pa.id,
+      rating: params.rating || null,
+      feedback_text: params.feedback_text || null,
+      contact_requested: params.contact_requested,
+      contact_reason: params.contact_reason || null,
+      status: 'new',
+      created_at: new Date().toISOString()
+    };
+
+    db.parent_feedback.unshift(newFeedback);
+    saveMockDB(db);
+
+    return { 
+      success: true, 
+      message: 'Thank you! Your feedback has been received by the learning centre.' 
+    };
+  },
+
+  // 3. Admin: Get Parent Access Directory
+  async adminGetParentAccessList(): Promise<ParentAccess[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc('admin_get_parent_access_list');
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map((item: any) => ({
+            id: item.id || 'pa-' + item.student_id,
+            student_id: item.student_id,
+            student: {
+              id: item.student_id,
+              name: item.student_name || item.name || 'Student',
+              active: item.student_active !== undefined ? item.student_active : true,
+            },
+            access_token: item.access_token || '',
+            active: item.active !== undefined ? !!item.active : false,
+            has_pin: item.has_pin !== undefined ? !!item.has_pin : false,
+            created_at: item.created_at || new Date().toISOString(),
+            updated_at: item.updated_at || new Date().toISOString(),
+            last_accessed_at: item.last_accessed_at || null,
+          }));
+        }
+      } catch (rpcErr) {
+        console.warn('admin_get_parent_access_list RPC not available, falling back to direct table query', rpcErr);
+      }
+
+      // Fallback: Query students and parent_access tables directly
+      try {
+        const [studRes, paRes] = await Promise.all([
+          supabase.from('students').select('*').order('name'),
+          supabase.from('parent_access').select('*'),
+        ]);
+
+        const studentsData: Student[] = studRes.data || [];
+        const paData: any[] = paRes.data || [];
+
+        return studentsData.map((s) => {
+          const pa = paData.find((p: any) => p.student_id === s.id);
+          return {
+            id: pa?.id || 'pa-' + s.id,
+            student_id: s.id,
+            student: s,
+            access_token: pa?.access_token || '',
+            active: pa ? !!pa.active : false,
+            has_pin: pa ? !!pa.pin_hash : false,
+            created_at: pa?.created_at || s.created_at || new Date().toISOString(),
+            updated_at: pa?.updated_at || s.updated_at || new Date().toISOString(),
+            last_accessed_at: pa?.last_accessed_at || null,
+          };
+        });
+      } catch (tableErr) {
+        console.error('Failed to query parent_access table', tableErr);
+      }
+    }
+
+    const db = getMockDB();
+    return db.students.map(s => {
+      const pa = db.parent_access.find(p => p.student_id === s.id);
+      return {
+        id: pa?.id || 'pa-' + s.id,
+        student_id: s.id,
+        student: s,
+        access_token: pa?.access_token || '',
+        active: pa ? pa.active : false,
+        has_pin: pa ? true : false,
+        created_at: pa?.created_at || s.created_at || new Date().toISOString(),
+        updated_at: pa?.updated_at || s.updated_at || new Date().toISOString(),
+        last_accessed_at: pa?.last_accessed_at || null,
+      };
+    });
+  },
+
+  // 4. Admin: Generate Parent Access Link
+  async adminGenerateParentAccess(studentId: string, pin: string): Promise<{ success: boolean; access_token: string; message: string }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_generate_parent_access', {
+        p_student_id: studentId,
+        p_pin: pin.trim(),
+      });
+      if (error) throw error;
+      return data;
+    }
+
+    const db = getMockDB();
+    const token = 'token-' + Math.random().toString(36).substring(2, 12) + '-' + Date.now().toString(36);
+    const existingIdx = db.parent_access.findIndex(p => p.student_id === studentId);
+
+    if (existingIdx !== -1) {
+      db.parent_access[existingIdx].access_token = token;
+      db.parent_access[existingIdx].pin_plain = pin.trim();
+      db.parent_access[existingIdx].active = true;
+      db.parent_access[existingIdx].updated_at = new Date().toISOString();
+    } else {
+      db.parent_access.push({
+        id: 'pa-' + Date.now(),
+        student_id: studentId,
+        access_token: token,
+        pin_plain: pin.trim(),
+        active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    saveMockDB(db);
+    return { success: true, access_token: token, message: 'Parent access link generated successfully' };
+  },
+
+  // 4.1 Admin: Generate All Parent Access Links in Bulk
+  async adminGenerateAllParentAccess(defaultPin: string = '1234'): Promise<{ success: boolean; count: number; message: string }> {
+    const students = await this.getStudents();
+    let count = 0;
+
+    for (const student of students) {
+      try {
+        await this.adminGenerateParentAccess(student.id, defaultPin);
+        count++;
+      } catch (e) {
+        console.warn(`Failed to generate parent access for ${student.name}`, e);
+      }
+    }
+
+    return { 
+      success: true, 
+      count, 
+      message: `Generated parent access links for ${count} students with default PIN ${defaultPin}.` 
+    };
+  },
+
+  // 5. Admin: Change Parent PIN
+  async adminChangeParentPin(studentId: string, newPin: string): Promise<{ success: boolean; message: string }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_change_parent_pin', {
+        p_student_id: studentId,
+        p_new_pin: newPin.trim(),
+      });
+      if (error) throw error;
+      return data;
+    }
+
+    const db = getMockDB();
+    const pa = db.parent_access.find(p => p.student_id === studentId);
+    if (!pa) throw new Error('Parent access record not found for student');
+    pa.pin_plain = newPin.trim();
+    pa.updated_at = new Date().toISOString();
+    saveMockDB(db);
+
+    return { success: true, message: 'Parent PIN updated successfully' };
+  },
+
+  // 6. Admin: Toggle Parent Access Active / Revoked
+  async adminToggleParentAccess(studentId: string, active: boolean): Promise<{ success: boolean; active: boolean; message: string }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_toggle_parent_access', {
+        p_student_id: studentId,
+        p_active: active,
+      });
+      if (error) throw error;
+      return data;
+    }
+
+    const db = getMockDB();
+    const pa = db.parent_access.find(p => p.student_id === studentId);
+    if (pa) {
+      pa.active = active;
+      pa.updated_at = new Date().toISOString();
+      saveMockDB(db);
+    }
+    return { 
+      success: true, 
+      active, 
+      message: active ? 'Parent access enabled' : 'Parent access revoked' 
+    };
+  },
+
+  // 7. Admin: Regenerate Parent Token (Invalidates old link)
+  async adminRegenerateParentToken(studentId: string, pin?: string): Promise<{ success: boolean; access_token: string; message: string }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_regenerate_parent_token', {
+        p_student_id: studentId,
+        p_pin: pin ? pin.trim() : null,
+      });
+      if (error) throw error;
+      return data;
+    }
+
+    const db = getMockDB();
+    const token = 'token-' + Math.random().toString(36).substring(2, 12) + '-' + Date.now().toString(36);
+    const pa = db.parent_access.find(p => p.student_id === studentId);
+    if (pa) {
+      pa.access_token = token;
+      if (pin && pin.trim()) pa.pin_plain = pin.trim();
+      pa.active = true;
+      pa.updated_at = new Date().toISOString();
+      saveMockDB(db);
+    }
+    return { success: true, access_token: token, message: 'New link generated (previous link invalidated)' };
+  },
+
+  // 8. Admin: Get Parent Feedback List
+  async adminGetParentFeedbackList(): Promise<ParentFeedback[]> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_get_parent_feedback_list');
+      if (error) throw error;
+      return data || [];
+    }
+
+    const db = getMockDB();
+    return db.parent_feedback.map(pf => ({
+      ...pf,
+      student: db.students.find(s => s.id === pf.student_id),
+      reviewer: pf.reviewed_by ? db.instructors.find(i => i.id === pf.reviewed_by) : undefined
+    }));
+  },
+
+  // 9. Admin: Update Feedback Status
+  async adminUpdateFeedbackStatus(feedbackId: string, status: ParentFeedbackStatus, adminNotes?: string): Promise<{ success: boolean }> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc('admin_update_feedback_status', {
+        p_feedback_id: feedbackId,
+        p_status: status,
+        p_admin_notes: adminNotes || null,
+      });
+      if (error) throw error;
+      return data || { success: true };
+    }
+
+    const db = getMockDB();
+    const pf = db.parent_feedback.find(p => p.id === feedbackId);
+    if (pf) {
+      pf.status = status;
+      if (adminNotes !== undefined) pf.admin_notes = adminNotes;
+      if (status === 'reviewed' && !pf.reviewed_at) pf.reviewed_at = new Date().toISOString();
+      if (status === 'responded') pf.responded_at = new Date().toISOString();
+      saveMockDB(db);
+    }
+    return { success: true };
   }
 };
+
 
 

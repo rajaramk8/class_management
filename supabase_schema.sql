@@ -684,3 +684,645 @@ INSERT INTO public.students (name, default_english_level, default_btm_level, def
 ('Kiaan', '5', '16', '12', true),
 ('Mishti', '6', NULL, NULL, true)
 ON CONFLICT DO NOTHING;
+
+-- ==============================================================================
+-- 8. PARENT PROGRESS REPORT & ACCESS EXTENSION
+-- ==============================================================================
+
+-- 8.1 Parent Access Table (Unique URL Token + Hashed PIN per student)
+CREATE TABLE IF NOT EXISTS public.parent_access (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    access_token TEXT NOT NULL UNIQUE,
+    pin_hash TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    lockout_until TIMESTAMPTZ,
+    last_accessed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    CONSTRAINT unique_student_parent_access UNIQUE (student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_parent_access_token ON public.parent_access(access_token);
+CREATE INDEX IF NOT EXISTS idx_parent_access_student_id ON public.parent_access(student_id);
+
+-- 8.2 Parent Feedback Table
+CREATE TABLE IF NOT EXISTS public.parent_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    parent_access_id UUID REFERENCES public.parent_access(id) ON DELETE SET NULL,
+    rating TEXT CHECK (rating IN ('good', 'okay', 'needs_attention')),
+    feedback_text TEXT,
+    contact_requested BOOLEAN NOT NULL DEFAULT false,
+    contact_reason TEXT,
+    status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'responded')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    reviewed_at TIMESTAMPTZ,
+    reviewed_by UUID REFERENCES public.instructors(id) ON DELETE SET NULL,
+    responded_at TIMESTAMPTZ,
+    admin_notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_parent_feedback_student ON public.parent_feedback(student_id);
+CREATE INDEX IF NOT EXISTS idx_parent_feedback_status ON public.parent_feedback(status);
+CREATE INDEX IF NOT EXISTS idx_parent_feedback_created ON public.parent_feedback(created_at DESC);
+
+-- Enable RLS
+ALTER TABLE public.parent_access ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parent_feedback ENABLE ROW LEVEL SECURITY;
+
+-- Policies for Parent Access & Feedback (Admins have full manage access)
+DROP POLICY IF EXISTS "Parent access managed by admin" ON public.parent_access;
+CREATE POLICY "Parent access managed by admin"
+ON public.parent_access FOR ALL TO authenticated
+USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "Parent feedback viewable by authenticated" ON public.parent_feedback;
+CREATE POLICY "Parent feedback viewable by authenticated"
+ON public.parent_feedback FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Parent feedback managed by authenticated" ON public.parent_feedback;
+CREATE POLICY "Parent feedback managed by authenticated"
+ON public.parent_feedback FOR UPDATE TO authenticated USING (true);
+
+-- ==============================================================================
+-- 8.3 ADMIN RPCs FOR PARENT ACCESS MANAGEMENT
+-- ==============================================================================
+
+-- Generate Parent Access Link & PIN
+CREATE OR REPLACE FUNCTION public.admin_generate_parent_access(
+    p_student_id UUID,
+    p_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_token TEXT;
+    v_pin_hash TEXT;
+    v_result JSONB;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can manage parent access.';
+    END IF;
+
+    IF p_pin IS NULL OR length(trim(p_pin)) < 4 THEN
+        RAISE EXCEPTION 'PIN must be at least 4 characters/digits.';
+    END IF;
+
+    -- Generate random URL-safe 32-char token
+    v_token := encode(gen_random_bytes(24), 'hex');
+    v_pin_hash := extensions.crypt(trim(p_pin), extensions.gen_salt('bf', 10));
+
+    INSERT INTO public.parent_access (
+        student_id,
+        access_token,
+        pin_hash,
+        active,
+        failed_attempts,
+        lockout_until,
+        created_at,
+        updated_at
+    ) VALUES (
+        p_student_id,
+        v_token,
+        v_pin_hash,
+        true,
+        0,
+        NULL,
+        timezone('utc'::text, now()),
+        timezone('utc'::text, now())
+    )
+    ON CONFLICT (student_id) DO UPDATE SET
+        access_token = EXCLUDED.access_token,
+        pin_hash = EXCLUDED.pin_hash,
+        active = true,
+        failed_attempts = 0,
+        lockout_until = NULL,
+        updated_at = timezone('utc'::text, now());
+
+    SELECT jsonb_build_object(
+        'success', true,
+        'student_id', p_student_id,
+        'access_token', v_token,
+        'message', 'Parent access generated successfully'
+    ) INTO v_result;
+
+    RETURN v_result;
+END;
+$$;
+
+-- Change Parent PIN
+CREATE OR REPLACE FUNCTION public.admin_change_parent_pin(
+    p_student_id UUID,
+    p_new_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_pin_hash TEXT;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can manage parent access.';
+    END IF;
+
+    IF p_new_pin IS NULL OR length(trim(p_new_pin)) < 4 THEN
+        RAISE EXCEPTION 'PIN must be at least 4 characters/digits.';
+    END IF;
+
+    v_pin_hash := extensions.crypt(trim(p_new_pin), extensions.gen_salt('bf', 10));
+
+    UPDATE public.parent_access
+    SET 
+        pin_hash = v_pin_hash,
+        failed_attempts = 0,
+        lockout_until = NULL,
+        updated_at = timezone('utc'::text, now())
+    WHERE student_id = p_student_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'student_id', p_student_id,
+        'message', 'Parent PIN updated successfully'
+    );
+END;
+$$;
+
+-- Toggle Parent Access Active / Revoked
+CREATE OR REPLACE FUNCTION public.admin_toggle_parent_access(
+    p_student_id UUID,
+    p_active BOOLEAN
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can manage parent access.';
+    END IF;
+
+    UPDATE public.parent_access
+    SET 
+        active = p_active,
+        updated_at = timezone('utc'::text, now())
+    WHERE student_id = p_student_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'student_id', p_student_id,
+        'active', p_active,
+        'message', CASE WHEN p_active THEN 'Parent access enabled' ELSE 'Parent access revoked' END
+    );
+END;
+$$;
+
+-- Regenerate Parent Token (Invalidates old link)
+CREATE OR REPLACE FUNCTION public.admin_regenerate_parent_token(
+    p_student_id UUID,
+    p_pin TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_token TEXT;
+    v_pin_hash TEXT;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can manage parent access.';
+    END IF;
+
+    v_token := encode(gen_random_bytes(24), 'hex');
+
+    IF p_pin IS NOT NULL AND length(trim(p_pin)) >= 4 THEN
+        v_pin_hash := extensions.crypt(trim(p_pin), extensions.gen_salt('bf', 10));
+        UPDATE public.parent_access
+        SET 
+            access_token = v_token,
+            pin_hash = v_pin_hash,
+            active = true,
+            failed_attempts = 0,
+            lockout_until = NULL,
+            updated_at = timezone('utc'::text, now())
+        WHERE student_id = p_student_id;
+    ELSE
+        UPDATE public.parent_access
+        SET 
+            access_token = v_token,
+            active = true,
+            failed_attempts = 0,
+            lockout_until = NULL,
+            updated_at = timezone('utc'::text, now())
+        WHERE student_id = p_student_id;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'student_id', p_student_id,
+        'access_token', v_token,
+        'message', 'New parent link generated successfully (previous link invalidated)'
+    );
+END;
+$$;
+
+-- Get Parent Access Directory for Admin
+CREATE OR REPLACE FUNCTION public.admin_get_parent_access_list()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_list JSONB;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Access denied.';
+    END IF;
+
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', pa.id,
+            'student_id', s.id,
+            'student_name', s.name,
+            'student_active', s.active,
+            'access_token', pa.access_token,
+            'active', COALESCE(pa.active, false),
+            'has_pin', (pa.pin_hash IS NOT NULL),
+            'last_accessed_at', pa.last_accessed_at,
+            'created_at', pa.created_at,
+            'updated_at', pa.updated_at
+        ) ORDER BY s.name
+    ) INTO v_list
+    FROM public.students s
+    LEFT JOIN public.parent_access pa ON pa.student_id = s.id;
+
+    RETURN COALESCE(v_list, '[]'::jsonb);
+END;
+$$;
+
+-- Get Parent Feedback List for Staff / Admin
+CREATE OR REPLACE FUNCTION public.admin_get_parent_feedback_list()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_list JSONB;
+BEGIN
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', pf.id,
+            'student_id', pf.student_id,
+            'student_name', s.name,
+            'rating', pf.rating,
+            'feedback_text', pf.feedback_text,
+            'contact_requested', pf.contact_requested,
+            'contact_reason', pf.contact_reason,
+            'status', pf.status,
+            'created_at', pf.created_at,
+            'reviewed_at', pf.reviewed_at,
+            'reviewed_by_name', i.name,
+            'responded_at', pf.responded_at,
+            'admin_notes', pf.admin_notes
+        ) ORDER BY pf.created_at DESC
+    ) INTO v_list
+    FROM public.parent_feedback pf
+    JOIN public.students s ON s.id = pf.student_id
+    LEFT JOIN public.instructors i ON i.id = pf.reviewed_by;
+
+    RETURN COALESCE(v_list, '[]'::jsonb);
+END;
+$$;
+
+-- Update Feedback Status
+CREATE OR REPLACE FUNCTION public.admin_update_feedback_status(
+    p_feedback_id UUID,
+    p_status TEXT,
+    p_admin_notes TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_instructor_id UUID;
+BEGIN
+    -- Match reviewer
+    SELECT id INTO v_instructor_id FROM public.instructors WHERE email = (SELECT email FROM auth.users WHERE id = auth.uid()) LIMIT 1;
+
+    UPDATE public.parent_feedback
+    SET 
+        status = p_status,
+        admin_notes = COALESCE(p_admin_notes, admin_notes),
+        reviewed_at = CASE WHEN p_status IN ('reviewed', 'responded') AND reviewed_at IS NULL THEN timezone('utc'::text, now()) ELSE reviewed_at END,
+        reviewed_by = COALESCE(reviewed_by, v_instructor_id),
+        responded_at = CASE WHEN p_status = 'responded' THEN timezone('utc'::text, now()) ELSE responded_at END
+    WHERE id = p_feedback_id;
+
+    RETURN jsonb_build_object('success', true, 'status', p_status);
+END;
+$$;
+
+-- ==============================================================================
+-- 8.4 PUBLIC / PARENT VERIFICATION RPC (No Staff Login Required)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.verify_parent_access(
+    p_token TEXT,
+    p_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_access RECORD;
+    v_student RECORD;
+    v_summary JSONB;
+    v_recent_classes JSONB;
+    v_pending_hw JSONB;
+    v_completed_hw JSONB;
+    v_month_start DATE;
+    v_month_end DATE;
+    v_total_classes INT;
+    v_total_minutes INT;
+    v_mtd_classes INT;
+    v_mtd_minutes INT;
+    v_completed_hw_count INT;
+    v_pending_hw_count INT;
+    v_last_update_date TEXT;
+BEGIN
+    -- 1. Look up active parent access token
+    SELECT * INTO v_access
+    FROM public.parent_access
+    WHERE access_token = trim(p_token)
+      AND active = true
+    LIMIT 1;
+
+    IF v_access.id IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'This report link is inactive or invalid. Please contact your learning centre.'
+        );
+    END IF;
+
+    -- 2. Check rate limit / lockout
+    IF v_access.lockout_until IS NOT NULL AND v_access.lockout_until > timezone('utc'::text, now()) THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'locked_out', true,
+            'lockout_seconds', EXTRACT(EPOCH FROM (v_access.lockout_until - timezone('utc'::text, now())))::INT,
+            'error', 'Too many incorrect attempts. Access temporarily locked. Please try again later.'
+        );
+    END IF;
+
+    -- 3. Verify PIN hash
+    IF v_access.pin_hash != extensions.crypt(trim(p_pin), v_access.pin_hash) THEN
+        -- Increment failed attempts
+        UPDATE public.parent_access
+        SET 
+            failed_attempts = failed_attempts + 1,
+            lockout_until = CASE WHEN failed_attempts + 1 >= 5 THEN timezone('utc'::text, now()) + INTERVAL '15 minutes' ELSE NULL END,
+            updated_at = timezone('utc'::text, now())
+        WHERE id = v_access.id;
+
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Incorrect PIN. Please check and try again.'
+        );
+    END IF;
+
+    -- 4. Success: Reset failed attempts & record last access
+    UPDATE public.parent_access
+    SET 
+        failed_attempts = 0,
+        lockout_until = NULL,
+        last_accessed_at = timezone('utc'::text, now())
+    WHERE id = v_access.id;
+
+    -- 5. Fetch student details
+    SELECT * INTO v_student
+    FROM public.students
+    WHERE id = v_access.student_id;
+
+    -- 6. Date ranges for monthly metrics
+    v_month_start := date_trunc('month', timezone('utc'::text, now()))::DATE;
+    v_month_end := (date_trunc('month', timezone('utc'::text, now())) + INTERVAL '1 month - 1 day')::DATE;
+
+    -- Metrics
+    SELECT COUNT(*), COALESCE(SUM(duration_minutes), 0)
+    INTO v_total_classes, v_total_minutes
+    FROM public.class_updates
+    WHERE student_id = v_student.id;
+
+    SELECT COUNT(*), COALESCE(SUM(duration_minutes), 0)
+    INTO v_mtd_classes, v_mtd_minutes
+    FROM public.class_updates
+    WHERE student_id = v_student.id
+      AND class_date >= v_month_start
+      AND class_date <= v_month_end;
+
+    SELECT COUNT(*) INTO v_completed_hw_count
+    FROM public.homework
+    WHERE student_id = v_student.id AND checked = true;
+
+    SELECT COUNT(*) INTO v_pending_hw_count
+    FROM public.homework
+    WHERE student_id = v_student.id AND checked = false;
+
+    SELECT TO_CHAR(MAX(class_date), 'DD Mon YYYY') INTO v_last_update_date
+    FROM public.class_updates
+    WHERE student_id = v_student.id;
+
+    -- Recent classes (Up to 15 most recent)
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', cu.id,
+            'class_date', cu.class_date,
+            'duration_minutes', cu.duration_minutes,
+            'booklet_number', cu.booklet_number,
+            'english_level', cu.english_level,
+            'btm_level', cu.btm_level,
+            'ctm_level', cu.ctm_level,
+            'cw', cu.cw,
+            'hw', cu.hw,
+            'subject', jsonb_build_object('name', sub.name),
+            'instructor', jsonb_build_object('name', ins.name)
+        ) ORDER BY cu.class_date DESC, cu.created_at DESC
+    ) INTO v_recent_classes
+    FROM (
+        SELECT * FROM public.class_updates
+        WHERE student_id = v_student.id
+        ORDER BY class_date DESC
+        LIMIT 15
+    ) cu
+    JOIN public.subjects sub ON sub.id = cu.subject_id
+    JOIN public.instructors ins ON ins.id = cu.instructor_id;
+
+    -- Pending homework
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', h.id,
+            'assigned_date', h.assigned_date,
+            'homework_text', h.homework_text,
+            'checked', h.checked,
+            'subject', jsonb_build_object('name', sub.name),
+            'class_update', jsonb_build_object('booklet_number', cu.booklet_number)
+        ) ORDER BY h.assigned_date DESC
+    ) INTO v_pending_hw
+    FROM public.homework h
+    JOIN public.subjects sub ON sub.id = h.subject_id
+    LEFT JOIN public.class_updates cu ON cu.id = h.class_update_id
+    WHERE h.student_id = v_student.id
+      AND h.checked = false;
+
+    -- Completed homework (Up to 10 most recent)
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', h.id,
+            'assigned_date', h.assigned_date,
+            'checked_date', h.checked_date,
+            'homework_text', h.homework_text,
+            'checked', h.checked,
+            'subject', jsonb_build_object('name', sub.name),
+            'instructor', jsonb_build_object('name', ins.name),
+            'class_update', jsonb_build_object('booklet_number', cu.booklet_number)
+        ) ORDER BY h.checked_date DESC NULLS LAST, h.assigned_date DESC
+    ) INTO v_completed_hw
+    FROM (
+        SELECT * FROM public.homework
+        WHERE student_id = v_student.id AND checked = true
+        ORDER BY checked_date DESC NULLS LAST, assigned_date DESC
+        LIMIT 10
+    ) h
+    JOIN public.subjects sub ON sub.id = h.subject_id
+    LEFT JOIN public.instructors ins ON ins.id = h.checked_by
+    LEFT JOIN public.class_updates cu ON cu.id = h.class_update_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'report', jsonb_build_object(
+            'student', jsonb_build_object(
+                'id', v_student.id,
+                'name', v_student.name,
+                'english_level', v_student.default_english_level,
+                'btm_level', v_student.default_btm_level,
+                'ctm_level', v_student.default_ctm_level
+            ),
+            'summary', jsonb_build_object(
+                'classes_this_month', v_mtd_classes,
+                'hours_this_month', ROUND((v_mtd_minutes::NUMERIC / 60.0), 1),
+                'total_classes', v_total_classes,
+                'total_hours', ROUND((v_total_minutes::NUMERIC / 60.0), 1),
+                'homework_completed', v_completed_hw_count,
+                'homework_pending', v_pending_hw_count
+            ),
+            'recent_classes', COALESCE(v_recent_classes, '[]'::jsonb),
+            'pending_homework', COALESCE(v_pending_hw, '[]'::jsonb),
+            'completed_homework', COALESCE(v_completed_hw, '[]'::jsonb),
+            'last_updated', COALESCE(v_last_update_date, 'Recently')
+        )
+    );
+END;
+$$;
+
+-- Submit Parent Feedback RPC
+CREATE OR REPLACE FUNCTION public.submit_parent_feedback(
+    p_token TEXT,
+    p_pin TEXT,
+    p_rating TEXT DEFAULT NULL,
+    p_feedback_text TEXT DEFAULT NULL,
+    p_contact_requested BOOLEAN DEFAULT false,
+    p_contact_reason TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_access RECORD;
+BEGIN
+    -- 1. Validate token & PIN
+    SELECT * INTO v_access
+    FROM public.parent_access
+    WHERE access_token = trim(p_token)
+      AND active = true
+    LIMIT 1;
+
+    IF v_access.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Invalid or inactive report token.');
+    END IF;
+
+    IF v_access.pin_hash != extensions.crypt(trim(p_pin), v_access.pin_hash) THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Invalid PIN verification.');
+    END IF;
+
+    -- 2. Insert Feedback
+    INSERT INTO public.parent_feedback (
+        student_id,
+        parent_access_id,
+        rating,
+        feedback_text,
+        contact_requested,
+        contact_reason,
+        status,
+        created_at
+    ) VALUES (
+        v_access.student_id,
+        v_access.id,
+        p_rating,
+        p_feedback_text,
+        COALESCE(p_contact_requested, false),
+        p_contact_reason,
+        'new',
+        timezone('utc'::text, now())
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Thank you! Your feedback has been received by the learning centre.'
+    );
+END;
+$$;
+
+-- Grant public execute on parent RPCs
+GRANT EXECUTE ON FUNCTION public.verify_parent_access(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_parent_feedback(TEXT, TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_generate_parent_access(UUID, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_change_parent_pin(UUID, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_toggle_parent_access(UUID, BOOLEAN) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_regenerate_parent_token(UUID, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_parent_access_list() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_parent_feedback_list() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_update_feedback_status(UUID, TEXT, TEXT) TO authenticated, service_role;
+
+-- 8.5 Seed Initial Parent Access Links with default PIN '1234'
+DO $$
+DECLARE
+    r RECORD;
+    v_tok TEXT;
+    v_pw TEXT;
+BEGIN
+    v_pw := extensions.crypt('1234', extensions.gen_salt('bf', 10));
+    FOR r IN SELECT id, name FROM public.students LOOP
+        v_tok := encode(gen_random_bytes(24), 'hex');
+        INSERT INTO public.parent_access (student_id, access_token, pin_hash, active, created_at, updated_at)
+        VALUES (r.id, v_tok, v_pw, true, timezone('utc'::text, now()), timezone('utc'::text, now()))
+        ON CONFLICT (student_id) DO NOTHING;
+    END LOOP;
+END $$;
+

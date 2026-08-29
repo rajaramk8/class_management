@@ -124,3 +124,85 @@ export interface UpdateClassUpdatePayload {
   hw?: string | null;
 }
 
+// ==========================================
+// PARENT PROGRESS REPORT & ACCESS TYPES
+// ==========================================
+
+export interface ParentAccess {
+  id: string;
+  student_id: string;
+  access_token: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_accessed_at?: string | null;
+  failed_attempts?: number;
+  lockout_until?: string | null;
+  has_pin?: boolean;
+
+  // Joined fields
+  student?: Student;
+}
+
+export type ParentFeedbackRating = 'good' | 'okay' | 'needs_attention';
+export type ParentFeedbackStatus = 'new' | 'reviewed' | 'responded';
+export type ContactReason = 'progress' | 'homework' | 'difficulty' | 'general' | 'other';
+
+export interface ParentFeedback {
+  id: string;
+  student_id: string;
+  parent_access_id?: string | null;
+  rating?: ParentFeedbackRating | null;
+  feedback_text?: string | null;
+  contact_requested: boolean;
+  contact_reason?: ContactReason | string | null;
+  status: ParentFeedbackStatus;
+  created_at: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  responded_at?: string | null;
+  admin_notes?: string | null;
+
+  // Joined fields
+  student?: Student;
+  reviewer?: Instructor;
+}
+
+export interface ParentReportData {
+  student: {
+    id: string;
+    name: string;
+    english_level?: string | null;
+    btm_level?: string | null;
+    ctm_level?: string | null;
+  };
+  summary: {
+    classes_this_month: number;
+    hours_this_month: number;
+    total_classes: number;
+    total_hours: number;
+    homework_completed: number;
+    homework_pending: number;
+  };
+  recent_classes: ClassUpdate[];
+  pending_homework: Homework[];
+  completed_homework: Homework[];
+  last_updated: string;
+}
+
+export interface VerifyParentAccessResponse {
+  success: boolean;
+  report?: ParentReportData;
+  error?: string;
+  locked_out?: boolean;
+  lockout_seconds?: number;
+}
+
+export interface SubmitParentFeedbackParams {
+  token: string;
+  pin: string;
+  rating?: ParentFeedbackRating | null;
+  feedback_text?: string;
+  contact_requested: boolean;
+  contact_reason?: string;
+}
