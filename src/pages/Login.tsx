@@ -66,7 +66,7 @@ export const Login: React.FC = () => {
           {isSupabaseConfigured ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-full shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Connected to Live Supabase Backend
+              Connected to Live DB Backend
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full shadow-2xs">
