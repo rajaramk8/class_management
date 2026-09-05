@@ -294,7 +294,7 @@ END;
 $$;
 
 -- ==============================================================================
--- 5.1 ADMIN RPC: SET / RESET INSTRUCTOR PASSWORD
+-- 5.1 ADMIN RPC: SET / RESET / CREATE INSTRUCTOR PASSWORD IN AUTH
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.admin_set_user_password(
     p_user_email TEXT,
@@ -303,40 +303,165 @@ CREATE OR REPLACE FUNCTION public.admin_set_user_password(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, auth, extensions
 AS $$
 DECLARE
     v_user_id UUID;
+    v_encrypted_pw TEXT;
+    v_instructor_name TEXT;
+    v_instructor_id UUID;
 BEGIN
-    -- Verify caller is an admin
+    -- 1. Verify caller is an admin
     IF NOT public.is_admin() THEN
-        RAISE EXCEPTION 'Access denied. Only administrators can reset instructor passwords.';
+        RAISE EXCEPTION 'Access denied. Only administrators can set or reset instructor passwords.';
     END IF;
 
+    -- 2. Validate password length
     IF p_new_password IS NULL OR length(trim(p_new_password)) < 6 THEN
         RAISE EXCEPTION 'Password must be at least 6 characters long.';
     END IF;
 
+    -- 3. Generate encrypted password hash using bcrypt
+    v_encrypted_pw := extensions.crypt(trim(p_new_password), extensions.gen_salt('bf', 10));
+
+    -- 4. Check if user already exists in auth.users
     SELECT id INTO v_user_id 
     FROM auth.users 
     WHERE LOWER(email) = LOWER(trim(p_user_email)) 
     LIMIT 1;
 
-    IF v_user_id IS NULL THEN
-        RAISE EXCEPTION 'No user account found in Auth with email: %', p_user_email;
+    -- 5. If user exists, update password and confirm email
+    IF v_user_id IS NOT NULL THEN
+        UPDATE auth.users
+        SET 
+            encrypted_password = v_encrypted_pw,
+            email_confirmed_at = COALESCE(email_confirmed_at, timezone('utc'::text, now())),
+            updated_at = timezone('utc'::text, now())
+        WHERE id = v_user_id;
+
+        -- Ensure profile row exists
+        INSERT INTO public.profiles (id, email, full_name, role)
+        SELECT 
+            v_user_id, 
+            LOWER(trim(p_user_email)), 
+            COALESCE(name, split_part(p_user_email, '@', 1)), 
+            'instructor'
+        FROM public.instructors
+        WHERE LOWER(email) = LOWER(trim(p_user_email))
+        ON CONFLICT (id) DO UPDATE SET 
+            email = EXCLUDED.email,
+            full_name = EXCLUDED.full_name;
+
+        -- Ensure identity exists in auth.identities
+        BEGIN
+            INSERT INTO auth.identities (
+                id,
+                user_id,
+                identity_data,
+                provider,
+                provider_id,
+                last_sign_in_at,
+                created_at,
+                updated_at
+            ) VALUES (
+                v_user_id::text,
+                v_user_id,
+                jsonb_build_object('sub', v_user_id::text, 'email', LOWER(trim(p_user_email))),
+                'email',
+                LOWER(trim(p_user_email)),
+                timezone('utc'::text, now()),
+                timezone('utc'::text, now()),
+                timezone('utc'::text, now())
+            )
+            ON CONFLICT DO NOTHING;
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignore identity variation if already present
+        END;
+
+        RETURN jsonb_build_object(
+            'success', true, 
+            'message', 'Password successfully updated for ' || p_user_email
+        );
     END IF;
 
-    UPDATE auth.users
-    SET 
-        encrypted_password = crypt(trim(p_new_password), gen_salt('bf')),
-        updated_at = timezone('utc'::text, now())
-    WHERE id = v_user_id;
+    -- 6. If user does NOT exist in auth.users yet, CREATE THEM!
+    SELECT id, name INTO v_instructor_id, v_instructor_name
+    FROM public.instructors
+    WHERE LOWER(email) = LOWER(trim(p_user_email))
+    LIMIT 1;
+
+    IF v_instructor_name IS NULL THEN
+        v_instructor_name := split_part(p_user_email, '@', 1);
+    END IF;
+
+    v_user_id := gen_random_uuid();
+
+    -- Insert into auth.users (omit instance_id to prevent type mismatch)
+    INSERT INTO auth.users (
+        id,
+        aud,
+        role,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_user_id,
+        'authenticated',
+        'authenticated',
+        LOWER(trim(p_user_email)),
+        v_encrypted_pw,
+        timezone('utc'::text, now()),
+        '{"provider":"email","providers":["email"]}'::jsonb,
+        jsonb_build_object('full_name', v_instructor_name),
+        timezone('utc'::text, now()),
+        timezone('utc'::text, now())
+    );
+
+    -- Create profile row
+    INSERT INTO public.profiles (id, email, full_name, role)
+    VALUES (v_user_id, LOWER(trim(p_user_email)), v_instructor_name, 'instructor')
+    ON CONFLICT (id) DO UPDATE SET 
+        email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name;
+
+    -- Insert into auth.identities
+    BEGIN
+        INSERT INTO auth.identities (
+            id,
+            user_id,
+            identity_data,
+            provider,
+            provider_id,
+            last_sign_in_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            v_user_id::text,
+            v_user_id,
+            jsonb_build_object('sub', v_user_id::text, 'email', LOWER(trim(p_user_email))),
+            'email',
+            LOWER(trim(p_user_email)),
+            timezone('utc'::text, now()),
+            timezone('utc'::text, now()),
+            timezone('utc'::text, now())
+        )
+        ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignore identity table variation
+    END;
 
     RETURN jsonb_build_object(
         'success', true, 
-        'message', 'Password updated successfully for ' || p_user_email
+        'message', 'New user account created and password set for ' || p_user_email
     );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.admin_set_user_password(TEXT, TEXT) TO authenticated, service_role;
 
 -- ==============================================================================
 -- 5.2 ADMIN / AUTHOR RPC: UPDATE CLASS UPDATE
