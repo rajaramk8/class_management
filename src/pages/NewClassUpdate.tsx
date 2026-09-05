@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import { Student, Subject, Homework, Instructor } from '../types';
+import { Student, Subject, Homework, Instructor, HomeworkStatusValue } from '../types';
 import { StudentSelect } from '../components/StudentSelect';
 import { ClassDurationPicker } from '../components/ClassDurationPicker';
 import { PendingHomeworkList } from '../components/PendingHomeworkList';
 import { LevelSelector } from '../components/LevelSelector';
+import { HOMEWORK_STATUS_CONFIG } from '../components/HomeworkStatusModal';
 import { 
   Calendar, 
   BookOpen, 
@@ -14,7 +15,10 @@ import {
   Send, 
   CheckCircle2, 
   AlertTriangle,
-  User
+  User,
+  PlusCircle,
+  Tag,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -43,6 +47,11 @@ export const NewClassUpdate: React.FC = () => {
   const [bookletNumber, setBookletNumber] = useState<string>('');
   const [cw, setCw] = useState<string>('');
   const [hw, setHw] = useState<string>('');
+
+  // Optional New Homework Status/Note
+  const [showHwStatusPanel, setShowHwStatusPanel] = useState<boolean>(false);
+  const [initialHwStatus, setInitialHwStatus] = useState<HomeworkStatusValue | ''>('');
+  const [initialHwNote, setInitialHwNote] = useState<string>('');
 
   // Pending homework & checkbox selections
   const [pendingHomework, setPendingHomework] = useState<Homework[]>([]);
@@ -216,6 +225,8 @@ export const NewClassUpdate: React.FC = () => {
         cw: cw,
         hw: hw,
         checked_homework_ids: selectedHwIds,
+        initial_hw_status: initialHwStatus || undefined,
+        initial_hw_note: initialHwNote || undefined,
       });
 
       if (result.success) {
@@ -232,6 +243,9 @@ export const NewClassUpdate: React.FC = () => {
         setCw('');
         setHw('');
         setBookletNumber('');
+        setInitialHwStatus('');
+        setInitialHwNote('');
+        setShowHwStatusPanel(false);
         setSelectedHwIds([]);
         setPendingHomework([]);
         setSelectedStudentId('');
@@ -240,6 +254,15 @@ export const NewClassUpdate: React.FC = () => {
       setError(err.message || 'Failed to save class update');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddPendingStatus = async (homeworkId: string, status: HomeworkStatusValue | string, note?: string) => {
+    await api.addHomeworkStatus(homeworkId, status, note, selectedInstructorId || currentInstructor?.id);
+    if (selectedStudentId && classDate) {
+      const subjectFilter = filterAllSubjects ? undefined : selectedSubjectId;
+      const list = await api.getPendingHomework(selectedStudentId, classDate, subjectFilter);
+      setPendingHomework(list);
     }
   };
 
@@ -477,6 +500,74 @@ export const NewClassUpdate: React.FC = () => {
               onChange={(e) => setHw(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
             />
+
+            {/* Optional HW Status / Note Action (Unobtrusive toggle) */}
+            <div className="pt-2">
+              {!showHwStatusPanel && !initialHwStatus ? (
+                <button
+                  type="button"
+                  onClick={() => setShowHwStatusPanel(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>+ Add HW status/note</span>
+                </button>
+              ) : (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Initial HW Status & Note (Optional)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInitialHwStatus('');
+                        setInitialHwNote('');
+                        setShowHwStatusPanel(false);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-200 transition-colors"
+                      title="Remove status/note"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Status Pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(Object.keys(HOMEWORK_STATUS_CONFIG) as HomeworkStatusValue[]).map((st) => {
+                      const isSel = initialHwStatus === st;
+                      const conf = HOMEWORK_STATUS_CONFIG[st];
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setInitialHwStatus(isSel ? '' : st)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                            isSel
+                              ? `${conf.badgeClass} ring-2 ring-sky-500 shadow-2xs`
+                              : `bg-white border-slate-200 text-slate-700 ${conf.bgClass}`
+                          }`}
+                        >
+                          {conf.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Optional Note */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Optional note e.g. Student completed first 2 pages during class..."
+                      value={initialHwNote}
+                      onChange={(e) => setInitialHwNote(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -492,6 +583,8 @@ export const NewClassUpdate: React.FC = () => {
             loading={loadingPendingHw}
             filterAllSubjects={filterAllSubjects}
             onToggleSubjectFilter={() => setFilterAllSubjects(!filterAllSubjects)}
+            onAddStatus={handleAddPendingStatus}
+            currentInstructorName={activeInstructorObj?.name || user?.full_name || 'Instructor'}
           />
         </div>
 

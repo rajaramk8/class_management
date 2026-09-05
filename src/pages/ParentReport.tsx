@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ParentReportData, ParentFeedbackRating } from '../types';
+import { ParentReportData, ParentFeedbackRating, HomeworkStatusValue } from '../types';
 import { formatLevelDisplay } from '../constants/levels';
+import { HOMEWORK_STATUS_CONFIG } from '../components/HomeworkStatusModal';
 import { 
   Lock, 
   Unlock, 
@@ -19,7 +20,8 @@ import {
   MessageSquare,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  History
 } from 'lucide-react';
 
 export const ParentReport: React.FC = () => {
@@ -426,30 +428,85 @@ export const ParentReport: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {pending_homework.map((hw) => (
-                  <div 
-                    key={hw.id}
-                    className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-left"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                      <span className="text-xs font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded">
-                        {hw.subject?.name}
-                      </span>
-                      {hw.class_update?.booklet_number && (
-                        <span className="text-xs text-amber-800 font-mono font-medium">
-                          Booklet {hw.class_update.booklet_number}
+              <div className="space-y-2.5">
+                {pending_homework.map((hw) => {
+                  const history = hw.status_history || [];
+                  const latestStatus = hw.latest_status || (history.length > 0 ? history[0] : null);
+                  const statusConf = latestStatus?.status
+                    ? HOMEWORK_STATUS_CONFIG[latestStatus.status as HomeworkStatusValue] || {
+                        badgeClass: 'bg-slate-100 text-slate-800 border-slate-300'
+                      }
+                    : null;
+
+                  return (
+                    <div 
+                      key={hw.id}
+                      className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-left space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded">
+                          {hw.subject?.name}
                         </span>
+                        {hw.class_update?.booklet_number && (
+                          <span className="text-xs text-amber-800 font-mono font-medium">
+                            Booklet {hw.class_update.booklet_number}
+                          </span>
+                        )}
+
+                        {statusConf && (
+                          <span className={`text-[11px] font-bold px-2 py-0.2 rounded-full border ${statusConf.badgeClass}`}>
+                            Current: {latestStatus?.status}
+                          </span>
+                        )}
+
+                        <span className="text-[11px] text-amber-800/80 ml-auto">
+                          Assigned: {hw.assigned_date}
+                        </span>
+                      </div>
+
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 whitespace-pre-wrap bg-white/80 p-2 rounded-lg border border-amber-100">
+                        {hw.homework_text}
+                      </p>
+
+                      {/* Status History for Parents */}
+                      {history.length > 0 && (
+                        <details className="group pt-1">
+                          <summary className="flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer list-none select-none">
+                            <span className="flex items-center gap-1">
+                              <History className="w-3 h-3 text-amber-600" />
+                              Status Updates ({history.length})
+                            </span>
+                            <span className="text-sky-600 group-open:hidden">Show</span>
+                            <span className="text-sky-600 hidden group-open:inline">Hide</span>
+                          </summary>
+
+                          <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-amber-300">
+                            {history.map((hEntry, hIdx) => {
+                              const eConf = HOMEWORK_STATUS_CONFIG[hEntry.status as HomeworkStatusValue] || {
+                                badgeClass: 'bg-slate-100 text-slate-800 border-slate-300'
+                              };
+                              return (
+                                <div key={hEntry.id || hIdx} className="text-xs bg-white p-2 rounded-lg border border-slate-200">
+                                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border ${eConf.badgeClass}`}>
+                                      {hEntry.status}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {new Date(hEntry.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                                    </span>
+                                  </div>
+                                  {hEntry.note && (
+                                    <p className="text-[11px] text-slate-700 font-medium">{hEntry.note}</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
                       )}
-                      <span className="text-[11px] text-amber-800/80 ml-auto">
-                        Assigned: {hw.assigned_date}
-                      </span>
                     </div>
-                    <p className="text-xs sm:text-sm font-semibold text-slate-900 whitespace-pre-wrap">
-                      {hw.homework_text}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -468,17 +525,32 @@ export const ParentReport: React.FC = () => {
                 </summary>
 
                 <div className="space-y-2 mt-2.5">
-                  {completed_homework.map((hw) => (
-                    <div key={hw.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs">
-                      <div className="flex items-center justify-between gap-2 text-slate-500 mb-1">
-                        <span className="font-semibold text-slate-700">{hw.subject?.name}</span>
-                        <span className="text-emerald-700 font-medium">
-                          ✓ Checked {hw.checked_date ? `on ${hw.checked_date}` : ''}
-                        </span>
+                  {completed_homework.map((hw) => {
+                    const history = hw.status_history || [];
+                    const latestStatus = hw.latest_status || (history.length > 0 ? history[0] : null);
+                    const statusConf = latestStatus?.status
+                      ? HOMEWORK_STATUS_CONFIG[latestStatus.status as HomeworkStatusValue] || {
+                          badgeClass: 'bg-slate-100 text-slate-800 border-slate-300'
+                        }
+                      : null;
+
+                    return (
+                      <div key={hw.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-slate-500 flex-wrap">
+                          <span className="font-semibold text-slate-700">{hw.subject?.name}</span>
+                          {statusConf && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border ${statusConf.badgeClass}`}>
+                              {latestStatus?.status}
+                            </span>
+                          )}
+                          <span className="text-emerald-700 font-medium ml-auto">
+                            ✓ Checked {hw.checked_date ? `on ${hw.checked_date}` : ''}
+                          </span>
+                        </div>
+                        <p className="text-slate-800 font-medium">{hw.homework_text}</p>
                       </div>
-                      <p className="text-slate-800 font-medium">{hw.homework_text}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </details>
             </div>

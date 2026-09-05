@@ -110,7 +110,17 @@ CREATE TABLE IF NOT EXISTS public.homework (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 2.8 AUDIT LOG TABLE
+-- 2.8 HOMEWORK STATUS HISTORY TABLE (Timeline of dated status updates & notes)
+CREATE TABLE IF NOT EXISTS public.homework_status_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    homework_id UUID NOT NULL REFERENCES public.homework(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    note TEXT,
+    created_by UUID REFERENCES public.instructors(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- 2.9 AUDIT LOG TABLE
 CREATE TABLE IF NOT EXISTS public.audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name TEXT NOT NULL,
@@ -131,6 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_class_updates_date ON public.class_updates(class_
 
 CREATE INDEX IF NOT EXISTS idx_homework_pending ON public.homework(student_id, assigned_date, checked) WHERE checked = false;
 CREATE INDEX IF NOT EXISTS idx_homework_class_update_id ON public.homework(class_update_id);
+CREATE INDEX IF NOT EXISTS idx_hw_status_history_hw_id ON public.homework_status_history(homework_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_students_active ON public.students(active, name);
 CREATE INDEX IF NOT EXISTS idx_instructors_active ON public.instructors(active, name);
 
@@ -184,7 +195,9 @@ CREATE OR REPLACE FUNCTION public.save_class_update(
     p_booklet_number TEXT DEFAULT NULL,
     p_cw TEXT DEFAULT NULL,
     p_hw TEXT DEFAULT NULL,
-    p_checked_homework_ids UUID[] DEFAULT ARRAY[]::UUID[]
+    p_checked_homework_ids UUID[] DEFAULT ARRAY[]::UUID[],
+    p_initial_hw_status TEXT DEFAULT NULL,
+    p_initial_hw_note TEXT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -257,6 +270,23 @@ BEGIN
             p_class_date,
             false
         ) RETURNING id INTO v_new_homework_id;
+
+        -- Record initial status/note if specified
+        IF p_initial_hw_status IS NOT NULL AND TRIM(p_initial_hw_status) <> '' THEN
+            INSERT INTO public.homework_status_history (
+                homework_id,
+                status,
+                note,
+                created_by,
+                created_at
+            ) VALUES (
+                v_new_homework_id,
+                TRIM(p_initial_hw_status),
+                NULLIF(TRIM(p_initial_hw_note), ''),
+                p_instructor_id,
+                timezone('utc'::text, now())
+            );
+        END IF;
     END IF;
 
     -- 4. Update previous unchecked homework records to checked
@@ -613,6 +643,70 @@ BEGIN
 END;
 $$;
 
+-- ==============================================================================
+-- 5.4 INSTRUCTOR / ADMIN RPC: ADD HOMEWORK STATUS / NOTE
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.add_homework_status(
+    p_homework_id UUID,
+    p_status TEXT,
+    p_note TEXT DEFAULT NULL,
+    p_instructor_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_new_id UUID;
+    v_instructor_id UUID;
+    v_instructor_name TEXT;
+    v_created_at TIMESTAMPTZ;
+BEGIN
+    IF p_status IS NULL OR TRIM(p_status) = '' THEN
+        RAISE EXCEPTION 'Homework status is required.';
+    END IF;
+
+    -- Determine instructor
+    v_instructor_id := p_instructor_id;
+    IF v_instructor_id IS NULL THEN
+        SELECT id, name INTO v_instructor_id, v_instructor_name 
+        FROM public.instructors 
+        WHERE email = (SELECT email FROM auth.users WHERE id = auth.uid()) 
+        LIMIT 1;
+    ELSE
+        SELECT name INTO v_instructor_name 
+        FROM public.instructors 
+        WHERE id = v_instructor_id;
+    END IF;
+
+    v_created_at := timezone('utc'::text, now());
+
+    INSERT INTO public.homework_status_history (
+        homework_id,
+        status,
+        note,
+        created_by,
+        created_at
+    ) VALUES (
+        p_homework_id,
+        TRIM(p_status),
+        NULLIF(TRIM(p_note), ''),
+        v_instructor_id,
+        v_created_at
+    ) RETURNING id INTO v_new_id;
+
+    RETURN jsonb_build_object(
+        'id', v_new_id,
+        'homework_id', p_homework_id,
+        'status', TRIM(p_status),
+        'note', NULLIF(TRIM(p_note), ''),
+        'created_by', v_instructor_id,
+        'instructor_name', COALESCE(v_instructor_name, 'Instructor'),
+        'created_at', v_created_at
+    );
+END;
+$$;
+
 
 -- ==============================================================================
 -- 6. ROW LEVEL SECURITY (RLS) & POLICIES
@@ -637,6 +731,7 @@ ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_updates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.homework ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.homework_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
 -- 6.1 Profiles Policies
@@ -1305,7 +1400,35 @@ BEGIN
             'homework_text', h.homework_text,
             'checked', h.checked,
             'subject', jsonb_build_object('name', sub.name),
-            'class_update', jsonb_build_object('booklet_number', cu.booklet_number)
+            'class_update', jsonb_build_object('booklet_number', cu.booklet_number),
+            'status_history', COALESCE((
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', sh.id,
+                        'status', sh.status,
+                        'note', sh.note,
+                        'created_at', sh.created_at,
+                        'instructor_name', COALESCE(shi.name, 'Instructor')
+                    ) ORDER BY sh.created_at DESC
+                )
+                FROM public.homework_status_history sh
+                LEFT JOIN public.instructors shi ON shi.id = sh.created_by
+                WHERE sh.homework_id = h.id
+            ), '[]'::jsonb),
+            'latest_status', (
+                SELECT jsonb_build_object(
+                    'id', sh.id,
+                    'status', sh.status,
+                    'note', sh.note,
+                    'created_at', sh.created_at,
+                    'instructor_name', COALESCE(shi.name, 'Instructor')
+                )
+                FROM public.homework_status_history sh
+                LEFT JOIN public.instructors shi ON shi.id = sh.created_by
+                WHERE sh.homework_id = h.id
+                ORDER BY sh.created_at DESC
+                LIMIT 1
+            )
         ) ORDER BY h.assigned_date DESC
     ) INTO v_pending_hw
     FROM public.homework h
@@ -1324,7 +1447,35 @@ BEGIN
             'checked', h.checked,
             'subject', jsonb_build_object('name', sub.name),
             'instructor', jsonb_build_object('name', ins.name),
-            'class_update', jsonb_build_object('booklet_number', cu.booklet_number)
+            'class_update', jsonb_build_object('booklet_number', cu.booklet_number),
+            'status_history', COALESCE((
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', sh.id,
+                        'status', sh.status,
+                        'note', sh.note,
+                        'created_at', sh.created_at,
+                        'instructor_name', COALESCE(shi.name, 'Instructor')
+                    ) ORDER BY sh.created_at DESC
+                )
+                FROM public.homework_status_history sh
+                LEFT JOIN public.instructors shi ON shi.id = sh.created_by
+                WHERE sh.homework_id = h.id
+            ), '[]'::jsonb),
+            'latest_status', (
+                SELECT jsonb_build_object(
+                    'id', sh.id,
+                    'status', sh.status,
+                    'note', sh.note,
+                    'created_at', sh.created_at,
+                    'instructor_name', COALESCE(shi.name, 'Instructor')
+                )
+                FROM public.homework_status_history sh
+                LEFT JOIN public.instructors shi ON shi.id = sh.created_by
+                WHERE sh.homework_id = h.id
+                ORDER BY sh.created_at DESC
+                LIMIT 1
+            )
         ) ORDER BY h.checked_date DESC NULLS LAST, h.assigned_date DESC
     ) INTO v_completed_hw
     FROM (

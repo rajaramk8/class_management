@@ -13,7 +13,9 @@ import {
   ParentFeedback,
   ParentFeedbackStatus,
   VerifyParentAccessResponse,
-  SubmitParentFeedbackParams
+  SubmitParentFeedbackParams,
+  HomeworkStatusUpdate,
+  HomeworkStatusValue
 } from '../types';
 import { 
   ENGLISH_LEVELS_DISPLAY_ORDER, 
@@ -25,7 +27,7 @@ import {
 // ==========================================
 // LOCAL STORAGE DEMO MOCK STORE (FOR OFFLINE / INITIAL DEV)
 // ==========================================
-const MOCK_STORAGE_KEY = 'class_management_mock_db_v7';
+const MOCK_STORAGE_KEY = 'class_management_mock_db_v8';
 
 interface MockDB {
   students: Student[];
@@ -34,6 +36,7 @@ interface MockDB {
   levels: Level[];
   class_updates: ClassUpdate[];
   homework: Homework[];
+  homework_status_history: HomeworkStatusUpdate[];
   profiles: UserProfile[];
   parent_access: (ParentAccess & { pin_plain?: string })[];
   parent_feedback: ParentFeedback[];
@@ -308,6 +311,32 @@ const initialMockDB: MockDB = {
       checked: false,
     }
   ],
+  homework_status_history: [
+    {
+      id: 'hsh-1',
+      homework_id: 'hw-101',
+      status: 'Not done',
+      note: 'Student did not complete the homework before class.',
+      created_by: '3e02d957-db76-4e43-a671-5f53e564a7e3', // Shriyam
+      created_at: '2026-08-18T10:05:00Z',
+    },
+    {
+      id: 'hsh-2',
+      homework_id: 'hw-101',
+      status: 'Partially completed',
+      note: 'Pages 7 and 11 completed in revision.',
+      created_by: '7d95d723-012f-4619-a6f0-1f9c8af41190', // Elma
+      created_at: '2026-08-22T11:00:00Z',
+    },
+    {
+      id: 'hsh-3',
+      homework_id: 'hw-102',
+      status: 'Needs correction',
+      note: 'Pages 14 and 15 need grammar corrections.',
+      created_by: '7d95d723-012f-4619-a6f0-1f9c8af41190', // Elma
+      created_at: '2026-08-20T14:30:00Z',
+    }
+  ],
   profiles: [
     { id: 'usr-admin', email: 'admin@example.com', full_name: 'Admin User', role: 'admin', instructor_id: '441bbd32-ea6c-48a1-9670-ee65ea4587fa' },
     { id: 'usr-raj', email: 'rajaram.class@gmail.com', full_name: 'Raj', role: 'instructor', instructor_id: '49185b37-5ee8-45b2-9b7b-15911c811741' },
@@ -493,7 +522,50 @@ export const api = {
     if (!studentId) return [];
 
     if (isSupabaseConfigured) {
-      let query = supabase
+      try {
+        let query = supabase
+          .from('homework')
+          .select(`
+            *, 
+            subject:subjects(id, name),
+            class_update:class_updates(id, booklet_number, cw, class_date, btm_level, ctm_level, english_level),
+            status_history:homework_status_history(
+              id, homework_id, status, note, created_at, created_by,
+              instructor:instructors(id, name)
+            )
+          `)
+          .eq('student_id', studentId)
+          .eq('checked', false)
+          .lte('assigned_date', beforeDate)
+          .order('assigned_date', { ascending: true });
+
+        if (subjectId) {
+          query = query.eq('subject_id', subjectId);
+        }
+
+        const { data, error } = await query;
+        if (!error && data) {
+          return data.map((h: any) => {
+            const sortedHistory = (h.status_history || [])
+              .map((sh: any) => ({
+                ...sh,
+                instructor_name: sh.instructor?.name || 'Instructor'
+              }))
+              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            return {
+              ...h,
+              status_history: sortedHistory,
+              latest_status: sortedHistory[0] || null
+            };
+          });
+        }
+      } catch (e) {
+        console.warn('Status history join failed, falling back to simple query', e);
+      }
+
+      // Fallback query if status_history table is not created yet
+      let fbQuery = supabase
         .from('homework')
         .select(`
           *, 
@@ -505,17 +577,18 @@ export const api = {
         .lte('assigned_date', beforeDate)
         .order('assigned_date', { ascending: true });
 
-      if (subjectId) {
-        query = query.eq('subject_id', subjectId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      if (subjectId) fbQuery = fbQuery.eq('subject_id', subjectId);
+      const { data: fbData, error: fbError } = await fbQuery;
+      if (fbError) throw fbError;
+      return (fbData || []).map(h => ({ ...h, status_history: [], latest_status: null }));
     }
 
-    // Mock DB retrieval with joined class updates
+    // Mock DB retrieval with joined class updates & status history
     const db = getMockDB();
+    if (!db.homework_status_history) {
+      db.homework_status_history = [];
+    }
+
     return db.homework
       .filter(h => {
         const matchesStudent = h.student_id === studentId;
@@ -524,12 +597,119 @@ export const api = {
         const matchesSubject = subjectId ? h.subject_id === subjectId : true;
         return matchesStudent && matchesUnchecked && matchesDate && matchesSubject;
       })
-      .map(h => ({
-        ...h,
-        subject: db.subjects.find(s => s.id === h.subject_id),
-        class_update: db.class_updates.find(c => c.id === h.class_update_id),
-      }))
+      .map(h => {
+        const history = (db.homework_status_history || [])
+          .filter(sh => sh.homework_id === h.id)
+          .map(sh => ({
+            ...sh,
+            instructor: db.instructors.find(i => i.id === sh.created_by),
+            instructor_name: db.instructors.find(i => i.id === sh.created_by)?.name || 'Instructor'
+          }))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return {
+          ...h,
+          subject: db.subjects.find(s => s.id === h.subject_id),
+          class_update: db.class_updates.find(c => c.id === h.class_update_id),
+          status_history: history,
+          latest_status: history[0] || null
+        };
+      })
       .sort((a, b) => a.assigned_date.localeCompare(b.assigned_date));
+  },
+
+  // Add a new dated Homework Status / Note
+  async addHomeworkStatus(
+    homeworkId: string, 
+    status: HomeworkStatusValue | string, 
+    note?: string, 
+    instructorId?: string
+  ): Promise<HomeworkStatusUpdate> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc('add_homework_status', {
+          p_homework_id: homeworkId,
+          p_status: status,
+          p_note: note?.trim() || null,
+          p_instructor_id: instructorId || null,
+        });
+        if (!error && data) {
+          return data;
+        }
+      } catch (rpcErr) {
+        console.warn('add_homework_status RPC not found, falling back to direct insert', rpcErr);
+      }
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('homework_status_history')
+        .insert([{
+          homework_id: homeworkId,
+          status: status,
+          note: note?.trim() || null,
+          created_by: instructorId || null,
+          created_at: new Date().toISOString()
+        }])
+        .select('*, instructor:instructors(id, name)')
+        .single();
+
+      if (insertError) throw insertError;
+      return {
+        ...insertData,
+        instructor_name: insertData.instructor?.name || 'Instructor'
+      };
+    }
+
+    const db = getMockDB();
+    const inst = db.instructors.find(i => i.id === instructorId);
+    const newEntry: HomeworkStatusUpdate = {
+      id: 'hsh-' + Date.now(),
+      homework_id: homeworkId,
+      status: status,
+      note: note?.trim() || null,
+      created_by: instructorId || null,
+      created_at: new Date().toISOString(),
+      instructor: inst,
+      instructor_name: inst?.name || 'Instructor'
+    };
+
+    if (!db.homework_status_history) {
+      db.homework_status_history = [];
+    }
+    db.homework_status_history.unshift(newEntry);
+    saveMockDB(db);
+    return newEntry;
+  },
+
+  // Get status history for a specific homework item
+  async getHomeworkStatusHistory(homeworkId: string): Promise<HomeworkStatusUpdate[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('homework_status_history')
+          .select('*, instructor:instructors(id, name)')
+          .eq('homework_id', homeworkId)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          return data.map((item: any) => ({
+            ...item,
+            instructor_name: item.instructor?.name || 'Instructor'
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to query homework_status_history table', err);
+      }
+      return [];
+    }
+
+    const db = getMockDB();
+    return (db.homework_status_history || [])
+      .filter(sh => sh.homework_id === homeworkId)
+      .map(sh => ({
+        ...sh,
+        instructor: db.instructors.find(i => i.id === sh.created_by),
+        instructor_name: db.instructors.find(i => i.id === sh.created_by)?.name || 'Instructor'
+      }))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   // Check Duplicate Class Record
@@ -573,11 +753,57 @@ export const api = {
         p_booklet_number: payload.booklet_number || null,
         p_cw: payload.cw || null,
         p_hw: payload.hw || null,
+        p_checked_homework_ids: payload.checked_homework_ids || [],
+        p_initial_hw_status: payload.initial_hw_status || null,
+        p_initial_hw_note: payload.initial_hw_note || null,
+      });
+
+      if (!error && data) {
+        return data;
+      }
+
+      // Fallback without initial status parameter if older RPC signature
+      const { data: fbData, error: fbError } = await supabase.rpc('save_class_update', {
+        p_student_id: payload.student_id,
+        p_instructor_id: payload.instructor_id,
+        p_subject_id: payload.subject_id,
+        p_level_id: payload.level_id || null,
+        p_english_level: payload.english_level || null,
+        p_btm_level: payload.btm_level || null,
+        p_ctm_level: payload.ctm_level || null,
+        p_class_date: payload.class_date,
+        p_duration_minutes: payload.duration_minutes,
+        p_booklet_number: payload.booklet_number || null,
+        p_cw: payload.cw || null,
+        p_hw: payload.hw || null,
         p_checked_homework_ids: payload.checked_homework_ids || []
       });
 
-      if (error) throw error;
-      return data;
+      if (fbError) throw fbError;
+
+      // If initial status was provided, insert it separately if homework was created
+      if (payload.hw && payload.hw.trim() && payload.initial_hw_status && fbData?.class_update_id) {
+        try {
+          const { data: hwRow } = await supabase
+            .from('homework')
+            .select('id')
+            .eq('class_update_id', fbData.class_update_id)
+            .single();
+
+          if (hwRow?.id) {
+            await this.addHomeworkStatus(
+              hwRow.id,
+              payload.initial_hw_status,
+              payload.initial_hw_note,
+              payload.instructor_id
+            );
+          }
+        } catch (hwStatusErr) {
+          console.warn('Could not insert initial HW status in fallback', hwStatusErr);
+        }
+      }
+
+      return fbData;
     }
 
     // Mock Atomic Transaction
@@ -630,8 +856,9 @@ export const api = {
 
     // Insert new homework if provided
     if (payload.hw && payload.hw.trim()) {
+      const newHwId = 'hw-' + Date.now();
       db.homework.push({
-        id: 'hw-' + Date.now(),
+        id: newHwId,
         student_id: payload.student_id,
         class_update_id: newClassId,
         subject_id: payload.subject_id,
@@ -639,6 +866,19 @@ export const api = {
         assigned_date: payload.class_date,
         checked: false
       });
+
+      if (payload.initial_hw_status) {
+        if (!db.homework_status_history) db.homework_status_history = [];
+        db.homework_status_history.unshift({
+          id: 'hsh-' + Date.now(),
+          homework_id: newHwId,
+          status: payload.initial_hw_status,
+          note: payload.initial_hw_note?.trim() || null,
+          created_by: payload.instructor_id,
+          created_at: new Date().toISOString(),
+          instructor_name: db.instructors.find(i => i.id === payload.instructor_id)?.name || 'Instructor'
+        });
+      }
     }
 
     // Mark previous checked homework
@@ -990,21 +1230,47 @@ export const api = {
 
     const pendingHw = db.homework
       .filter(h => h.student_id === student.id && !h.checked)
-      .map(h => ({
-        ...h,
-        subject: db.subjects.find(s => s.id === h.subject_id),
-        class_update: db.class_updates.find(c => c.id === h.class_update_id)
-      }))
+      .map(h => {
+        const history = (db.homework_status_history || [])
+          .filter(sh => sh.homework_id === h.id)
+          .map(sh => ({
+            ...sh,
+            instructor: db.instructors.find(i => i.id === sh.created_by),
+            instructor_name: db.instructors.find(i => i.id === sh.created_by)?.name || 'Instructor'
+          }))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return {
+          ...h,
+          subject: db.subjects.find(s => s.id === h.subject_id),
+          class_update: db.class_updates.find(c => c.id === h.class_update_id),
+          status_history: history,
+          latest_status: history[0] || null
+        };
+      })
       .sort((a, b) => new Date(b.assigned_date).getTime() - new Date(a.assigned_date).getTime());
 
     const completedHw = db.homework
       .filter(h => h.student_id === student.id && h.checked)
-      .map(h => ({
-        ...h,
-        subject: db.subjects.find(s => s.id === h.subject_id),
-        instructor: db.instructors.find(i => i.id === h.checked_by),
-        class_update: db.class_updates.find(c => c.id === h.class_update_id)
-      }))
+      .map(h => {
+        const history = (db.homework_status_history || [])
+          .filter(sh => sh.homework_id === h.id)
+          .map(sh => ({
+            ...sh,
+            instructor: db.instructors.find(i => i.id === sh.created_by),
+            instructor_name: db.instructors.find(i => i.id === sh.created_by)?.name || 'Instructor'
+          }))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return {
+          ...h,
+          subject: db.subjects.find(s => s.id === h.subject_id),
+          instructor: db.instructors.find(i => i.id === h.checked_by),
+          class_update: db.class_updates.find(c => c.id === h.class_update_id),
+          status_history: history,
+          latest_status: history[0] || null
+        };
+      })
       .sort((a, b) => new Date(b.checked_date || b.assigned_date).getTime() - new Date(a.checked_date || a.assigned_date).getTime())
       .slice(0, 10);
 

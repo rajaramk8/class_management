@@ -73,6 +73,27 @@ export interface ClassUpdate {
   level?: Level;
 }
 
+export type HomeworkStatusValue = 
+  | 'Not done' 
+  | 'Partially completed' 
+  | 'Completed' 
+  | 'Needs correction' 
+  | 'Not applicable' 
+  | 'Other';
+
+export interface HomeworkStatusUpdate {
+  id: string;
+  homework_id: string;
+  status: HomeworkStatusValue | string;
+  note?: string | null;
+  created_by?: string | null;
+  created_at: string;
+
+  // Joined fields
+  instructor?: Instructor;
+  instructor_name?: string;
+}
+
 export interface Homework {
   id: string;
   student_id: string;
@@ -91,6 +112,8 @@ export interface Homework {
   subject?: Subject;
   instructor?: Instructor;
   class_update?: ClassUpdate;
+  status_history?: HomeworkStatusUpdate[];
+  latest_status?: HomeworkStatusUpdate | null;
 }
 
 export interface SaveClassUpdatePayload {
@@ -107,6 +130,8 @@ export interface SaveClassUpdatePayload {
   cw?: string;
   hw?: string;
   checked_homework_ids: string[];
+  initial_hw_status?: HomeworkStatusValue | string;
+  initial_hw_note?: string;
 }
 
 export interface UpdateClassUpdatePayload {
